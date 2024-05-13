@@ -1,0 +1,46 @@
+{
+  "name": "repository",
+  "homepage": "./",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --loader ts-node/esm ./src/main.ts",
+    "test": "jest ./src/test",
+    "test-watch": "jest ./src/test --watch"
+  },
+  "dependencies": {
+    "koa": "^2.15.3",
+    "vait": "^2.5.1"
+  },
+  "eslintConfig": {
+    "extends": []
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.24.5",
+    "@babel/preset-typescript": "^7.24.1",
+    "@types/jest": "^29.5.12",
+    "@types/koa": "^2.15.0",
+    "@types/pad-left": "^2.1.0",
+    "@types/supertest": "^6.0.2",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "jest": "29.7.0",
+    "prettier": "^3.2.5",
+    "supertest": "^7.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.4.5"
+  }
+}
