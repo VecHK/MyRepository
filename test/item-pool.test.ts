@@ -398,6 +398,46 @@ test('deleteTag', () => {
     const found_item = getItem(item_pool, new_item.id)
     expect(found_item.tags.includes(tag.id)).toBe(false)
     expect(found_item.tags.length).toBe(0)
+
+    {
+      const tagA = newTag(tag_pool, { name: 'tagA', attributes: {} })
+      const tagB = newTag(tag_pool, { name: 'tagB', attributes: {} })
+      const new_item = addItem(item_pool, {
+        ...createForm(),
+        tags: [ tagA.id, tagB.id ]
+      })
+
+      expect(new_item.tags.length).toBe(2)
+      expect(getItem(item_pool, new_item.id).tags).toEqual([ tagA.id, tagB.id ])
+
+      deleteTagAndUpdateItems(
+        tag_pool,
+        item_pool,
+        tagA.id
+      )
+
+      expect(getItem(item_pool, new_item.id).tags.length).toBe(1)
+      expect(getItem(item_pool, new_item.id).tags).toEqual([ tagB.id ])
+
+      deleteTagAndUpdateItems(
+        tag_pool,
+        item_pool,
+        tagB.id
+      )
+      expect(getItem(item_pool, new_item.id).tags.length).toBe(0)
+    }
+
+    {
+      expect(() =>
+        deleteTagAndUpdateItems(tag_pool, item_pool, tagID(114141424214))
+      ).toThrow()
+
+      const removed_tag = newTag(tag_pool, { name: 'tagA', attributes: {} })
+      deleteTagAndUpdateItems(tag_pool, item_pool, removed_tag.id)
+      expect(() =>
+        deleteTagAndUpdateItems(tag_pool, item_pool, removed_tag.id)
+      ).toThrow()
+    }
   }
 })
 

@@ -69,11 +69,11 @@ export function createItemPool(items: Item[]): ItemPool {
 export function deleteTagAndUpdateItems(
   tag_pool: TagPool,
   item_pool: ItemPool,
-  tag_id: TagID
+  will_remove_tag_id: TagID
 ) {
   const list = listingItem(item_pool, 'id', undefined, 0, true, [{
     name: 'has_tag',
-    input: tag_id,
+    input: will_remove_tag_id,
     invert: false,
     logic: 'and'
   }])
@@ -81,16 +81,16 @@ export function deleteTagAndUpdateItems(
   list.map(item_id => {
     return getItem(item_pool, item_id)
   }).filter(item => {
-    return item.tags.includes(tag_id)
+    return item.tags.includes(will_remove_tag_id)
   }).forEach((item) => {
     updateItem(item_pool, item.id, {
       tags: item.tags.filter(tag_id => {
-        return tag_id !== tag_id
+        return tag_id !== will_remove_tag_id
       })
     })
   })
 
-  deleteTag(tag_pool, tag_id)
+  deleteTag(tag_pool, will_remove_tag_id)
 }
 
 function moveToLatest(list: ItemID[], item_id: ItemID) {
