@@ -10,8 +10,8 @@
     "build-front": "react-scripts build",
     "build-front:production": "env-cmd -f .env.production yarn build",
     "build-front:development": "env-cmd -f .env.development yarn build",
-    "test": "jest ./test/ --watch --detectOpenHandles",
-    "test-watch": "jest ./test --watch"
+    "test": "jest ./test/ --detectOpenHandles",
+    "test-watch": "jest ./test --watch --detectOpenHandles"
   },
   "dependencies": {
     "@juggle/resize-observer": "^3.4.0",
