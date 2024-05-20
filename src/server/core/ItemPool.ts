@@ -300,7 +300,8 @@ export type FilterRule =
   DefineFilterRule<'title', string> |
   DefineFilterRule<'has_multi_original', null> |
   DefineFilterRule<'is_child_item', null> |
-  DefineFilterRule<'has_tag', TagID>
+  DefineFilterRule<'has_tag', TagID> |
+  DefineFilterRule<'empty_tag', null>
 
 function ruleCheck(rule: FilterRule, item: Item): boolean {
   if (rule.name === 'has_tag') {
@@ -311,6 +312,8 @@ function ruleCheck(rule: FilterRule, item: Item): boolean {
     return Array.isArray(item.original)
   } else if (rule.name === 'is_child_item') {
     return Boolean(item.parent)
+  } else if (rule.name === 'empty_tag') {
+    return item.tags.length === 0
   } else {
     throw new Error(`unknown filter rule: ${JSON.stringify(rule)}`)
   }

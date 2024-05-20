@@ -75,39 +75,46 @@ test('测试分页', async () => {
   }
 })
 
-test('测试筛选', async () => {
-  // title
+test('Filter Rule(title)', async () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
-  const listing = partial(listingItem, [item_pool, 'id'])
-
-  const total_list = [...item_pool.map.values()]
+  const input_title = 'halasjfiasjfosajoifjasiofjioqjiojafoiafsjioasjfoiajsl'
+  const list = listingItem(item_pool, 'id', undefined, 0, true, [{
+    name: 'title',
+    input: input_title,
+    logic: 'and',
+    // use_regexp: false,
+    // invert: false,
+  }])
+  expect(list.length).toBe(0)
 
   {
-    const input_title = 'halasjfiasjfosajoifjasiofjioqjiojafoiafsjioasjfoiajsl'
+    const new_item = addItem(item_pool, createForm({ title: input_title }))
     const list = listingItem(item_pool, 'id', undefined, 0, true, [{
       name: 'title',
-      input: input_title,
+      input: input_title.slice(0, 9),
       logic: 'and',
-      // use_regexp: false,
-      // invert: false,
+      use_regexp: false,
+      invert: false,
     }])
-    expect(list.length).toBe(0)
-
-    {
-      const new_item = addItem(item_pool, createForm({ title: input_title }))
-      const list = listingItem(item_pool, 'id', undefined, 0, true, [{
-        name: 'title',
-        input: input_title.slice(0, 9),
-        logic: 'and',
-        use_regexp: false,
-        invert: false,
-      }])
-      expect(list[0]).toBe(new_item.id)
-      expect(list.length).toBe(1)
-    }
+    expect(list[0]).toBe(new_item.id)
+    expect(list.length).toBe(1)
   }
-
+})
+test('Filter Rule(has_multi_original)', async () => {
+  const item_pool = createItemPool(parseRawItems(generateRawItems()))
+  const list = listingItem(item_pool, 'id', undefined, 0, true, [{
+    name: 'has_multi_original',
+    input: null,
+    logic: 'and',
+    // use_regexp: false,
+    // invert: false,
+  }])
+  expect(list.length).toBe(0)
   {
+    const new_item = addItem(item_pool, createForm({
+      title: 'hag',
+      original: [1, 2].map(itemID),
+    }))
     const list = listingItem(item_pool, 'id', undefined, 0, true, [{
       name: 'has_multi_original',
       input: null,
@@ -115,24 +122,12 @@ test('测试筛选', async () => {
       // use_regexp: false,
       // invert: false,
     }])
-    expect(list.length).toBe(0)
-    {
-      const new_item = addItem(item_pool, createForm({
-        title: 'hag',
-        original: [1, 2].map(itemID),
-      }))
-      const list = listingItem(item_pool, 'id', undefined, 0, true, [{
-        name: 'has_multi_original',
-        input: null,
-        logic: 'and',
-        // use_regexp: false,
-        // invert: false,
-      }])
-      expect(list.length).toBe(1)
-    }
+    expect(list.length).toBe(1)
   }
+})
 
-  {  // 新创建了 item_pool
+test('Filter Rule(is_child_item)', async () => {
+  {  // is_child_item （通常
     const item_pool = createItemPool(parseRawItems(generateRawItems()))
     const list = listingItem(item_pool, 'id', undefined, 0, true, [{
       name: 'is_child_item',
@@ -142,8 +137,7 @@ test('测试筛选', async () => {
     }])
     expect(list.length).toBe(5)
   }
-  {
-    // 新创建了 item_pool
+  { // is_child_item （更细致的检查
     const item_pool = createItemPool(parseRawItems(generateRawItems()))
     const list = listingItem(item_pool, 'id', undefined, 0, true, [{
       name: 'is_child_item',
@@ -203,14 +197,49 @@ test('测试筛选', async () => {
       }
     }
   }
-
-// has_tag
 })
 
-test('测试多重筛选', () => {
+test.todo('Filter Rule(has_tag)')
+
+test('Filter Rule(empty_tag)', async () => {
+  const item_pool = createItemPool([])
+  const tag_pool = createTagPool([])
+  const new_tag = newTag(tag_pool, { name: 'hehe', attributes: {} })
+
+  const __count = 100
+
+  for (let i = 0; i < __count; ++i) {
+    addItem(item_pool, createForm({
+      tags: []
+    }))
+  }
+
+  const ids = listingItem(item_pool, 'id', undefined, 0, true, [{
+    name: 'empty_tag',
+    input: null,
+    logic: 'and',
+    invert: false,
+  }])
+  expect(ids.length).toBe(__count)
+
+  for (let i = 0; i < __count; ++i) {
+    updateItem(item_pool, ids[i], { tags: [ new_tag.id ] })
+    {
+      const list = listingItem(item_pool, 'id', undefined, 0, true, [{
+        name: 'empty_tag',
+        input: null,
+        logic: 'and',
+        invert: false,
+      }])
+      expect(list.length).toBe(__count - (i + 1))
+    }
+  }
 })
 
-test('测试取反', () => {
+test('Multi Fileter Rule', () => {
+})
+
+test('Filter Rule(invert option)', () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
 
   const total_list = [...item_pool.map.values()]
@@ -223,7 +252,9 @@ test('测试取反', () => {
   expect(list.length).toBe(total_list.length)
 })
 
-test('测试索引工作情况', async () => {
+test.todo('Filter Rule(logic option)')
+
+test('listingItem(sort)', async () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
 
   const total_list = [...item_pool.map.values()]
@@ -327,6 +358,9 @@ test('deleteItem', () => {
     original: [child_item.id]
   }))
 })
+
+test.todo('delete parent item')
+test.todo('delete child item')
 
 test('updateItem', () => {
   const pool = createItemPool(parseRawItems(generateRawItems()))
