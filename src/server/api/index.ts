@@ -138,6 +138,8 @@ export function createApi(
 
 export type ActionRouteTable = ReturnType<typeof ActionRoute>
 
+type ParamType<T> = T extends (arg: infer P) => any ? P : T
+
 export type ActionName = keyof ActionRouteTable
 export type ActionPayload<N extends ActionName> = ParamType<ActionRouteTable[N]>
 
@@ -256,6 +258,8 @@ function ActionRoute(
           id: thumb_fid,
           dimession: await getImageDimession(thumb_image_path)
         }
+      } else {
+        throw new Error(`缩略图生成失败，FileID[${file_id}]不存在`)
       }
     },
 

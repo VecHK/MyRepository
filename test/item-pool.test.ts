@@ -312,7 +312,7 @@ test('getItem', () => {
   }).toThrow(/not found/)
 })
 
-test('removeItem', () => {
+test('deleteItem', () => {
   const pool = createItemPool(parseRawItems(generateRawItems()))
   deleteItem(pool, 9 as ItemID)
   expect(pool.map.has(9 as ItemID)).toBe(false)

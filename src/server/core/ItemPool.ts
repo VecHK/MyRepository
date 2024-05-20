@@ -1,5 +1,5 @@
 import { remove, sort } from 'ramda'
-import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, createItem, itemID, parseRawItems } from './Item'
+import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, createItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
 import { maxId } from './ID'
@@ -207,12 +207,20 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<Creat
       }
     }
 
+    const update_form_tags = updateForm.tags
+
     const release_date_string = updateForm.release_date
     pool.map.set(found_item.id, {
       ...found_item,
       ...updateForm,
-      release_date: release_date_string ? new Date(release_date_string) : null,
+
       update_date: new Date,
+
+      tags: Array.isArray(update_form_tags) ?
+        unique(update_form_tags) : found_item.tags,
+
+      release_date: release_date_string ?
+        new Date(release_date_string) : null,
     })
 
     pool.index.update_date = moveToLatest(pool.index.update_date, found_item.id)

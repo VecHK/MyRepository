@@ -97,7 +97,7 @@ export type CreateItemForm =
     release_date: string | null
   }
 
-const unique = <T>(list: T[]) => [...new Set(list)]
+export const unique = <T>(list: T[]) => [...new Set(list)]
 
 export function createItem(id: ItemID, create_form: CreateItemForm): Item {
   const release_date_string = loadProperty(create_form, 'release_date', v_isNullAbleDateString)
