@@ -1,0 +1,7 @@
+/coverage
+/node_modules
+/test/init/storage
+/test/file-pool/storage
+/storage
+.eslintcache
+.DS_Store

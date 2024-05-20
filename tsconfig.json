@@ -1,0 +1,50 @@
+{
+  "ts-node": {
+    "esm": true,
+    "files": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "noImplicitAny": false,
+    "strict": true,
+    "jsx": "react-jsx",
+    "rootDir": "/",
+    "baseUrl": "src",
+    "skipLibCheck": true,
+    "lib": [
+      "DOM",
+      "ES2015"
+    ],
+    "typeRoots": [
+      "node_modules/@types",
+      "src/typings/index.d.ts"
+    ],
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "files": [
+    "src/types/index.d.ts"
+  ],
+  "include": [
+    "src/server/*.ts",
+    "src/server/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/*.js",
+    "test/**/*.js",
+    "src/typings/**/*",
+    "src/typings/*",
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
