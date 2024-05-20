@@ -320,6 +320,12 @@ test('deleteItem', () => {
   expect(() => {
     deleteItem(pool, 2141241)
   }).toThrow(/not found/)
+
+  const child_item = addItem(pool, createForm({ title: 'child' }))
+  const parent_item = addItem(pool, createForm({
+    title: 'parent',
+    original: [child_item.id]
+  }))
 })
 
 test('updateItem', () => {
@@ -391,5 +397,51 @@ test('deleteTag', () => {
 
     const found_item = getItem(item_pool, new_item.id)
     expect(found_item.tags.includes(tag.id)).toBe(false)
+    expect(found_item.tags.length).toBe(0)
+  }
+})
+
+test('updateTag', async () => {
+  const item_pool = createItemPool(parseRawItems(generateRawItems()))
+  const tag_pool = createTagPool([
+    { id: tagID(1), name: 'name', attributes: {} }
+  ])
+
+  {
+    const updated_tag = updateTag(tag_pool, tagID(1), { name: 'newname' })
+    assert(updated_tag.name === 'newname')
+    assert(updated_tag.id === 1)
+
+    const found_tag = getTag(tag_pool, tagID(1))
+    assert(found_tag.name === 'newname')
+    assert(found_tag.id === 1)
+  }
+})
+
+test('unique tag_id', async () => {
+  const item_pool = createItemPool(parseRawItems(generateRawItems()))
+  const tag_pool = createTagPool([
+    { id: tagID(1), name: 'name', attributes: {} }
+  ])
+  {
+    const new_item = addItem(item_pool, createForm({
+      tags: [tagID(1), tagID(1)]
+    }))
+    expect(new_item.tags.length).toBe(1)
+    expect(new_item.tags[0]).toBe(tagID(1))
+  }
+  {
+    const item = addItem(item_pool, createForm({
+      tags: []
+    }))
+    expect(item.tags.length).toBe(0)
+
+    updateItem(item_pool, item.id, {
+      tags: [tagID(1), tagID(1)]
+    })
+
+    const updated_item = getItem(item_pool, item.id)
+    expect(updated_item.tags.length).toBe(1)
+    expect(updated_item.tags[0]).toBe(tagID(1))
   }
 })
