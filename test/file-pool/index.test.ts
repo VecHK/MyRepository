@@ -119,12 +119,16 @@ test('collectUnReferencedFiles', async () => {
 
   const item_pool = createItemPool([])
 
-  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+  function collectUnReferencedFiles() {
+    return filepool.collectUnReferencedFiles(item_pool, () => {})
+  }
+
+  expect((await collectUnReferencedFiles()).length).toBe(0)
 
   {
     await createFile(filepool, 'hejhiojaipsfa')
 
-    const files = await filepool.collectUnReferencedFiles(item_pool)
+    const files = await collectUnReferencedFiles()
 
     expect(files.length).toBe(1)
   }
@@ -132,23 +136,23 @@ test('collectUnReferencedFiles', async () => {
   {
     await createFile(filepool, 'hejhiojaipsfa')
     await createFile(filepool, 'hejhiojaipsfa')
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(3)
+    expect((await collectUnReferencedFiles()).length).toBe(3)
   }
 
   {
     const f_id = await createFile(filepool, 'hejhiojaipsfa')
 
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(4)
+    expect((await collectUnReferencedFiles()).length).toBe(4)
 
     addItem(item_pool, createForm({ cover: f_id }))
 
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(3)
+    expect((await collectUnReferencedFiles()).length).toBe(3)
 
-    const files = await filepool.collectUnReferencedFiles(item_pool)
+    const files = await collectUnReferencedFiles()
     const unref_file_id = path.basename(files[0]) as FileID
     addItem(item_pool, createForm({ original: unref_file_id }))
 
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(2)
+    expect((await collectUnReferencedFiles()).length).toBe(2)
   }
 })
 
@@ -157,24 +161,28 @@ test('cleanUnReferencedFiles', async () => {
 
   const item_pool = createItemPool([])
 
+  function collectUnReferencedFiles() {
+    return filepool.collectUnReferencedFiles(item_pool, () => {})
+  }
+
   await createFile(filepool, 'hejhiojaipsfa')
-  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(1)
+  expect((await collectUnReferencedFiles()).length).toBe(1)
   await filepool.cleanUnReferencedFiles(item_pool)
-  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+  expect((await collectUnReferencedFiles()).length).toBe(0)
 
   for (let i = 0; i < 10; ++i) {
     await createFile(filepool, 'hejhiojaipsfa')
   }
-  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+  expect((await collectUnReferencedFiles()).length).toBe(10)
 
   await filepool.cleanUnReferencedFiles(item_pool)
-  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+  expect((await collectUnReferencedFiles()).length).toBe(0)
 
   {
     for (let i = 0; i < 10; ++i) {
       await createFile(filepool, 'abcdefg')
     }
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+    expect((await collectUnReferencedFiles()).length).toBe(10)
 
     const referenced_items: Item[] = []
     for (let i = 0; i < 30; ++i) {
@@ -184,10 +192,10 @@ test('cleanUnReferencedFiles', async () => {
       referenced_items.push(item)
     }
 
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+    expect((await collectUnReferencedFiles()).length).toBe(10)
 
     await filepool.cleanUnReferencedFiles(item_pool)
-    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+    expect((await collectUnReferencedFiles()).length).toBe(0)
     for (const item of referenced_items) {
       expect(
         await pathExists(filepool.getFilePath(item.original as FileID))

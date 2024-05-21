@@ -1,11 +1,20 @@
-import { Config } from './config'
 import path from 'path'
-import { initRepositoryInstance } from './init'
+import http from 'http'
+import serveHandler from 'serve-handler'
+import readline from 'readline'
+
+import { Config } from './config'
+import { RepositoryInstance, initRepositoryInstance } from './init'
 import { Wait } from 'vait'
 import { fileURLToPath } from 'url'
 import { createApi } from './api'
+import pkg from '../../package.json' assert { type: 'json' }
+import diagnosis from './diagnosis'
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+serverStart(createConfig())
 
 function createConfig(): Config {
   const storage_path = path.join(__dirname, '../../storage')
@@ -17,14 +26,19 @@ function createConfig(): Config {
   }
 }
 
-import http from 'http'
+async function serverStart(config: Config) {
+  console.log(`MyRepository ver${pkg.version}`)
 
-init(createConfig())
-
-import serveHandler from 'serve-handler'
-
-async function init(config: Config) {
   const repo = await initRepositoryInstance(config)
+
+  diagnosis(repo, async () => {
+    console.log('server api creating')
+    await createServerApi(config, repo)
+    console.log('server api created')
+  })
+}
+
+async function createServerApi(config: Config, repo: RepositoryInstance) {
   const app = createApi(config, repo)
 
   const fileServer = http.createServer((req, res) => {
@@ -34,9 +48,9 @@ async function init(config: Config) {
     })
   })
 
-  const [file_wait, file_done] = Wait()
+  const [fileserver_wait, fileserver_done] = Wait()
 
-  fileServer.listen(config.internal_fileserver_http_port, file_done)
+  fileServer.listen(config.internal_fileserver_http_port, fileserver_done)
 
   const [wait, done] = Wait()
   const result = Object.freeze({
@@ -47,7 +61,5 @@ async function init(config: Config) {
   })
 
   await wait
-  await file_wait
-
-  return result
+  await fileserver_wait
 }

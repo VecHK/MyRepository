@@ -108,7 +108,11 @@ async function getDirectoryFileRecursive(dir: string): Promise<string[]> {
   }
 }
 
-async function collectUnReferencedFiles(filepool_path: string, pool: ItemPool) {
+async function collectUnReferencedFiles(
+  filepool_path: string,
+  pool: ItemPool,
+  foundCallback: (file: string) => void
+) {
   const refs = collectReferencedFileIds(pool)
   const splits = await fs.promises.readdir(filepool_path)
 
@@ -122,12 +126,27 @@ async function collectUnReferencedFiles(filepool_path: string, pool: ItemPool) {
         ...unrefs,
         ...file_path_list.filter(p => {
           const file_id = path.basename(p) as FileID
-          return !refs.includes(file_id)
+          if (!refs.includes(file_id)) {
+            foundCallback(p)
+            return true
+          } else {
+            return false
+          }
         })
       ]
     }
   }
   return unrefs
+}
+
+export async function deleteFiles(
+  unref_files: string[],
+  deletedCallback: (file: string) => void
+) {
+  for (const file of unref_files) {
+    await fs.promises.unlink(file)
+    deletedCallback(file)
+  }
 }
 
 export async function initFilePool(
@@ -147,10 +166,10 @@ export async function initFilePool(
     getFilePath: filePath,
     collectUnReferencedFiles: partial(collectUnReferencedFiles, [filepool_path]),
     async cleanUnReferencedFiles(pool: ItemPool) {
-      const files = await collectUnReferencedFiles(filepool_path, pool)
-      for (const file of files) {
-        await fs.promises.unlink(file)
-      }
+      deleteFiles(
+        await collectUnReferencedFiles(filepool_path, pool, () => {}),
+        () => {}
+      )
     },
     async saveFile(f_id: FileID, buf: Buffer) {
       const write_path = filePath(f_id)
