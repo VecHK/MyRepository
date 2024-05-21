@@ -9,6 +9,7 @@ import { createTagPool, deleteTag, getTag, newTag, updateTag } from '../src/serv
 import { tagID } from '../src/server/core/Tag'
 import { timeout } from 'vait'
 import { partial } from 'ramda'
+import { createForm } from './common'
 
 beforeEach(() => {
   // fs.rmSync(config_object.storage_path, { recursive: true, force: true });
@@ -16,21 +17,6 @@ beforeEach(() => {
   //   fs.existsSync(config_object.storage_path)
   // ).toEqual(false)
 })
-
-function createForm(append: Partial<CreateItemForm> = {}): CreateItemForm {
-  return {
-    title: '',
-    tags: [],
-    attributes: {},
-    cover: null,
-    original: null,
-    cover_width: 0,
-    cover_height: 0,
-    parent: null,
-    release_date: null,
-    ...append
-  }
-}
 
 function initPlainRawItem(id: number): Item_raw {
   return {

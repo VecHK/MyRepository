@@ -2,10 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import { FileID, name2number, parseFileID } from '../core/File'
 import { curry, partial, pipe } from 'ramda'
-import pathExists, { initDirectory, initDirectorySync, prepareWriteDirectory } from '../utils/directory'
+import pathExists, { checkDirectory, initDirectory, initDirectorySync, prepareWriteDirectory } from '../utils/directory'
 import { Memo, Serial } from 'vait'
 import ID, { Id } from '../core/ID'
 import { Signal } from 'new-vait'
+import { ItemPool, collectReferencedFileIds } from '../core/ItemPool'
 
 export const __FILE_POOL_SPLIT_INTERVAL__ = 2_000
 
@@ -83,6 +84,52 @@ async function LatestFileNumber(filepool_path: string) {
 async function saveToFileUsingStream() {}
 async function loadFileStreamUsingStream() {}
 
+async function getDirectoryFileRecursive(dir: string): Promise<string[]> {
+  const res = await checkDirectory(dir)
+  if (res === 'dir') {
+    const files = await fs.promises.readdir(dir)
+    let file_list: string[] = []
+    for (const file of files) {
+      file_list = [
+        ...file_list,
+        ...await getDirectoryFileRecursive(
+          path.join(dir, file)
+        )
+      ]
+    }
+    return file_list
+  } else if (res === 'is_not_dir') {
+    return [ dir ]
+  } else {
+    // 这里的 res 为 nofound
+    // 很奇怪，明明都是 readdir 返回的，为什么会 nofound 呢？
+    // 可能是读着读着文件被删了什么的吧
+    return [  ]
+  }
+}
+
+async function collectUnReferencedFiles(filepool_path: string, pool: ItemPool) {
+  const refs = collectReferencedFileIds(pool)
+  const splits = await fs.promises.readdir(filepool_path)
+
+  let unrefs: Array<string> = []
+
+  for (const split of splits) {
+    const split_path = path.join(filepool_path, split)
+    if ('dir' === (await checkDirectory(split_path))) {
+      const file_path_list = await getDirectoryFileRecursive(split_path)
+      unrefs = [
+        ...unrefs,
+        ...file_path_list.filter(p => {
+          const file_id = path.basename(p) as FileID
+          return !refs.includes(file_id)
+        })
+      ]
+    }
+  }
+  return unrefs
+}
+
 export async function initFilePool(
   filepool_path: string,
   interval: number = __FILE_POOL_SPLIT_INTERVAL__
@@ -98,6 +145,13 @@ export async function initFilePool(
     interval,
     fileBasePath,
     getFilePath: filePath,
+    collectUnReferencedFiles: partial(collectUnReferencedFiles, [filepool_path]),
+    async cleanUnReferencedFiles(pool: ItemPool) {
+      const files = await collectUnReferencedFiles(filepool_path, pool)
+      for (const file of files) {
+        await fs.promises.unlink(file)
+      }
+    },
     async saveFile(f_id: FileID, buf: Buffer) {
       const write_path = filePath(f_id)
       await prepareWriteDirectory(write_path)

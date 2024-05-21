@@ -1,11 +1,16 @@
 import fs from 'fs'
-import { partial } from 'ramda'
+import { partial, pathEq } from 'ramda'
 // import { fileId } from '../app/core/File'
 import { initFilePool, splitPoint } from '../../src/server/repo/file-pool'
-import { constructFileID, parseFileID } from '../../src/server/core/File'
+import { FileID, constructFileID, parseFileID } from '../../src/server/core/File'
 
 import cfg from './config'
 import { timeout } from 'vait'
+import { addItem, createItemPool } from '../../src/server/core/ItemPool'
+import { createForm } from '../common'
+import path from 'path'
+import pathExists from '../../src/server/utils/directory'
+import { Item } from '../../src/server/core/Item'
 
 beforeEach(() => {
   fs.rmSync(cfg.filepool_path, { recursive: true, force: true })
@@ -99,7 +104,99 @@ test('parseFileID', () => {
   }
 })
 
-test.skip('getFilePath', async () => {
+async function createFile(
+  filepool: Awaited<ReturnType<typeof initFilePool>>,
+  data: Buffer | string
+) {
+  const f_num = await filepool.requestFileNumber()
+  const f_id = `${f_num}` as FileID
+  await filepool.saveFile(f_id, Buffer.from(data))
+  return f_id
+}
+
+test('collectUnReferencedFiles', async () => {
+  const filepool = await initFilePool(cfg.filepool_path, 10)
+
+  const item_pool = createItemPool([])
+
+  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+
+  {
+    await createFile(filepool, 'hejhiojaipsfa')
+
+    const files = await filepool.collectUnReferencedFiles(item_pool)
+
+    expect(files.length).toBe(1)
+  }
+
+  {
+    await createFile(filepool, 'hejhiojaipsfa')
+    await createFile(filepool, 'hejhiojaipsfa')
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(3)
+  }
+
+  {
+    const f_id = await createFile(filepool, 'hejhiojaipsfa')
+
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(4)
+
+    addItem(item_pool, createForm({ cover: f_id }))
+
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(3)
+
+    const files = await filepool.collectUnReferencedFiles(item_pool)
+    const unref_file_id = path.basename(files[0]) as FileID
+    addItem(item_pool, createForm({ original: unref_file_id }))
+
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(2)
+  }
+})
+
+test('cleanUnReferencedFiles', async () => {
+  const filepool = await initFilePool(cfg.filepool_path, 10)
+
+  const item_pool = createItemPool([])
+
+  await createFile(filepool, 'hejhiojaipsfa')
+  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(1)
+  await filepool.cleanUnReferencedFiles(item_pool)
+  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+
+  for (let i = 0; i < 10; ++i) {
+    await createFile(filepool, 'hejhiojaipsfa')
+  }
+  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+
+  await filepool.cleanUnReferencedFiles(item_pool)
+  expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+
+  {
+    for (let i = 0; i < 10; ++i) {
+      await createFile(filepool, 'abcdefg')
+    }
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+
+    const referenced_items: Item[] = []
+    for (let i = 0; i < 30; ++i) {
+      const item = addItem(item_pool, createForm({
+        original: await createFile(filepool, 'abcdefg')
+      }))
+      referenced_items.push(item)
+    }
+
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(10)
+
+    await filepool.cleanUnReferencedFiles(item_pool)
+    expect((await filepool.collectUnReferencedFiles(item_pool)).length).toBe(0)
+    for (const item of referenced_items) {
+      expect(
+        await pathExists(filepool.getFilePath(item.original as FileID))
+      ).toBe(true)
+    }
+  }
+})
+
+test('getFilePath', async () => {
   const filepool = await initFilePool(cfg.filepool_path, 10)
 
   const increment_count = 1000
@@ -115,7 +212,7 @@ test.skip('getFilePath', async () => {
   }
 })
 
-test.skip('atomic requestFileNumber', async () => {
+test('atomic requestFileNumber', async () => {
   const filepool = await initFilePool(cfg.filepool_path, 100)
   const list: number[] = []
   const operating: Promise<number>[] = []

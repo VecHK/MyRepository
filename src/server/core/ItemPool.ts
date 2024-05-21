@@ -3,6 +3,7 @@ import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, createItem, ite
 import { TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
 import { maxId } from './ID'
+import { FileID } from './File'
 
 type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -303,7 +304,7 @@ export type FilterRule =
   DefineFilterRule<'has_tag', TagID> |
   DefineFilterRule<'empty_tag', null>
 
-function ruleCheck(rule: FilterRule, item: Item): boolean {
+function predicate(rule: FilterRule, item: Item): boolean {
   if (rule.name === 'has_tag') {
     return item.tags.includes(rule.input)
   } else if (rule.name === 'title') {
@@ -328,7 +329,7 @@ function sortRule(rules: FilterRule[]) {
 function ItemFilterCond(rules: FilterRule[]): (item: Item) => boolean {
   return (item) => {
     for (const rule of sortRule(rules)) {
-      const check_result = ruleCheck(rule, item)
+      const check_result = predicate(rule, item)
       const inverted = rule.invert ? (!check_result) : check_result
       if (rule.logic === 'and') {
         if (inverted !== true) {
@@ -383,4 +384,19 @@ export function listingItem(
       )
     }
   }
+}
+
+export function collectReferencedFileIds(pool: ItemPool) {
+  const file_ids: Array<FileID> = []
+  for (const item of pool.map.values()) {
+    if (item.cover !== null) {
+      file_ids.push(item.cover)
+    } else if (
+      (item.original !== null) &&
+      !Array.isArray(item.original)
+    ) {
+      file_ids.push(item.original)
+    }
+  }
+  return file_ids
 }
