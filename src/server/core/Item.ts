@@ -17,17 +17,25 @@ export type ItemDateFields<V> = {
   update_date: V
 }
 
-type Original = (null | FileID) | Array<ItemID>
+export type NullableFileID = FileID | null
 
-export type Item = ItemDateFields<Date> & {
+type Original = NullableFileID | Array<ItemID>
+
+export type NullableFileIDFields = 'original' | 'cover'
+type NullableFileIDItemFields = {
+  cover: NullableFileID
+  original: Original
+}
+
+// 注意，增加了 FileID 的字段后，要去 collectReferencedFileIdTable 处理对应的逻辑
+// 不然清理文件的时候将会把新增字段的 FileID 给抹去！
+export type Item = ItemDateFields<Date> & NullableFileIDItemFields & {
   id: ItemID
-  tags: Array<TagID>
-  attributes: ItemAttributes
   title: string
-  cover: null | FileID
+  attributes: ItemAttributes
   cover_width: number
   cover_height: number
-  original: Original
+  tags: Array<TagID>
   parent: null | ItemID
 }
 

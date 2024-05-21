@@ -202,6 +202,30 @@ test('cleanUnReferencedFiles', async () => {
       ).toBe(true)
     }
   }
+
+  {
+    expect((await collectUnReferencedFiles()).length).toBe(0)
+
+    const file_a = await createFile(filepool, 'hejhiojaipsfa')
+    const file_b = await createFile(filepool, 'a')
+    expect((await collectUnReferencedFiles()).length).toBe(2)
+
+    addItem(item_pool, createForm({
+      original: file_a,
+      cover: file_b,
+    }))
+
+    expect((await collectUnReferencedFiles()).length).toBe(0)
+
+    const file_c = await createFile(filepool, 'a')
+    expect((await collectUnReferencedFiles()).length).toBe(1)
+
+    addItem(item_pool, createForm({
+      original: file_c,
+      cover: file_c,
+    }))
+    expect((await collectUnReferencedFiles()).length).toBe(0)
+  }
 })
 
 test('getFilePath', async () => {

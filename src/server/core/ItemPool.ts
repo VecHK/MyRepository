@@ -1,5 +1,5 @@
 import { remove, sort } from 'ramda'
-import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, createItem, itemID, parseRawItems, unique } from './Item'
+import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, createItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
 import { maxId } from './ID'
@@ -386,17 +386,33 @@ export function listingItem(
   }
 }
 
-export function collectReferencedFileIds(pool: ItemPool) {
-  const file_ids: Array<FileID> = []
+export function collectReferencedFileIds(pool: ItemPool): string[] {
+  const table = collectReferencedFileIdTable(pool)
+  return Object.keys(table).map(key => {
+    return table[key]
+  }).flat()
+}
+
+export function collectReferencedFileIdTable(
+  pool: ItemPool
+): Record<NullableFileIDFields, Array<NullableFileID>> {
+  const cover_fids: Array<FileID> = []
+  const original_fids: Array<FileID> = []
+
   for (const item of pool.map.values()) {
     if (item.cover !== null) {
-      file_ids.push(item.cover)
-    } else if (
+      cover_fids.push(item.cover)
+    }
+    if (
       (item.original !== null) &&
       !Array.isArray(item.original)
     ) {
-      file_ids.push(item.original)
+      original_fids.push(item.original)
     }
   }
-  return file_ids
+
+  return {
+    cover: cover_fids,
+    original: original_fids,
+  }
 }
