@@ -1,44 +1,26 @@
-import readline from 'readline'
 import { RepositoryInstance } from './init'
 import { deleteFiles } from './repo/file-pool'
-
-function myConfirm(
-  message: string,
-  callbacks: {
-    yes: () => void,
-    no: () => void
-  }
-) {
-  const inter = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  })
-
-  inter.question(`${message} (y/n)`, (ans) => {
-    if (ans == 'y' || ans == 'yes') {
-      inter.close()
-      callbacks.yes()
-    } else if (ans === 'n' || ans === 'no') {
-      inter.close()
-      callbacks.no()
-    }
-  })
-}
+import myConfirm from './utils/my-confirm'
 
 export default async function diagnosis(
   repo: RepositoryInstance,
   continueCallback: () => void
 ) {
-  process.stdout.write('\n')
-
+  let searching_count = 0
   const UnReferencedFiles = await repo.file_pool.collectUnReferencedFiles(
     repo.item_pool,
-    (file) => {
-      console.log(`found Unreferenced File: ${file}`)
+    (file, found) => {
+      searching_count += 1
+      process.stdout.write(`\rseareaching file(${searching_count})`)
+      if (found) {
+        process.stdout.write('\n')
+        console.log(`found Unreferenced File: ${file}`)
+      }
     }
   )
+  process.stdout.write('\n')
 
-  console.log('---------- diagnosis info ----------')
+  console.log('---------- repository info ----------')
   console.log('storage path:', repo.config.storage_path)
   console.log('filepool path:', repo.config.filepool_path)
   console.log('Items count:', repo.item_pool.map.size)
@@ -51,13 +33,15 @@ export default async function diagnosis(
     myConfirm('has Unreferenced files, clean?', {
       no: continueCallback,
       async yes() {
-        console.log('')
+        process.stdout.write('\n')
 
         let count = 0
         await deleteFiles(UnReferencedFiles, () => {
           count += 1
-          process.stdout.write(`${count} files is deleted`)
+          process.stdout.write(`\r${count} files is deleted`)
         })
+
+        process.stdout.write('\n')
 
         diagnosis(repo, continueCallback)
       },
