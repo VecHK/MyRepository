@@ -209,7 +209,7 @@ function ItemActionRoute(
       return deleteItem(item_pool, will_del_id)
     },
 
-    listing(payload: { after_id?: ItemID; desc?: true; limit: number; filter_rules: FilterRule[] }) {
+    listing(payload: { after_id?: ItemID; desc?: boolean; limit: number; filter_rules: FilterRule[] }) {
       return idList2Items(
         item_pool,
         listingItem(
@@ -217,7 +217,7 @@ function ItemActionRoute(
           'id',
           payload.after_id,
           payload.limit,
-          payload.desc,
+          Boolean(payload.desc),
           payload.filter_rules
         )
       )
