@@ -222,6 +222,8 @@ test('Filter Rule(invert option)', () => {
 
 test.todo('Filter Rule(logic option)')
 
+test.todo('Filter Rule(empty_release_date)')
+
 test('listingItem(sort)', async () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
 

@@ -5,7 +5,7 @@ import { TagPool, deleteTag } from './TagPool'
 import { maxId } from './ID'
 import { FileID } from './File'
 
-type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
+export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
   latest_id: ItemID
   index: Record<ItemIndexedField, ItemID[]>
@@ -298,7 +298,8 @@ export type FilterRule =
   DefineFilterRule<'has_multi_original', null> |
   DefineFilterRule<'is_child_item', null> |
   DefineFilterRule<'has_tag', TagID> |
-  DefineFilterRule<'empty_tag', null>
+  DefineFilterRule<'empty_tag', null> |
+  DefineFilterRule<'empty_release_date', null>
 
 function predicate(rule: FilterRule, item: Item): boolean {
   if (rule.name === 'has_tag') {
@@ -311,6 +312,8 @@ function predicate(rule: FilterRule, item: Item): boolean {
     return Boolean(item.parent)
   } else if (rule.name === 'empty_tag') {
     return item.tags.length === 0
+  } else if (rule.name === 'empty_release_date') {
+    return item.release_date === null
   } else {
     throw new Error(`unknown filter rule: ${JSON.stringify(rule)}`)
   }
