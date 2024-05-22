@@ -6,9 +6,13 @@ export default async function diagnosis(
   repo: RepositoryInstance,
   continueCallback: () => void
 ) {
+  const {
+    itempool_op: [ itemPool ],
+    tagpool_op: [ tagPool ]
+  } = repo
   let searching_count = 0
   const UnReferencedFiles = await repo.file_pool.collectUnReferencedFiles(
-    repo.item_pool,
+    itemPool(),
     (file, found) => {
       searching_count += 1
       process.stdout.write(`\rseareaching file(${searching_count})`)
@@ -23,8 +27,8 @@ export default async function diagnosis(
   console.log('---------- repository info ----------')
   console.log('storage path:', repo.config.storage_path)
   console.log('filepool path:', repo.config.filepool_path)
-  console.log('Items count:', repo.item_pool.map.size)
-  console.log('Tags count:', repo.tag_pool.map.size)
+  console.log('Items count:', itemPool().map.size)
+  console.log('Tags count:', tagPool().map.size)
   console.log('UnReferencedFiles:', UnReferencedFiles.length)
 
   process.stdout.write('\n')

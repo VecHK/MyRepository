@@ -44,9 +44,9 @@
     "vait": "^2.5.1",
     "zustand": "^4.5.2"
   },
-  "engines" : {
-    "npm" : ">=10.0.0 <=10.2.5",
-    "node" : "20.10.0"
+  "engines": {
+    "npm": ">=10.0.0 <=10.2.5",
+    "node": "20.10.0"
   },
   "browserslist": {
     "production": [

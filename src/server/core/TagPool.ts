@@ -1,62 +1,80 @@
+import Immutable from 'immutable'
 import { sort, toLower } from 'ramda'
 import ID, { Id, maxId } from './ID'
 import { CreateTagForm, Tag, TagAttributes, TagID, constructTag, tagID } from './Tag'
+import { Memo } from 'new-vait'
+import { PoolOperation } from './Pool'
 
 type LowercaseTagName = ID<string, 'LowercaseTagName'>
 
-type TagNames = Map<LowercaseTagName, Tag['id']>
+// type TagNames = Map<LowercaseTagName, Tag['id']>
+type TagNameTable = Immutable.Map<LowercaseTagName, Tag['id']>
+type TagMap = Immutable.Map<TagID, Tag>
 
 export type TagPool = {
   latest_id: TagID
   index: Record<'name', TagID[]>
-  names: TagNames
-  map: Map<TagID, Tag>
+  name_table: TagNameTable
+  // map: Map<TagID, Tag>
+  map: TagMap
 }
 
 function toLowerTagname(n: string) {
   return toLower(n) as LowercaseTagName
 }
 
-function findNameTable(names: TagNames, find_name: string) {
+function findNameTable(names: TagNameTable, find_name: string) {
   return names.get(toLowerTagname(find_name))
 }
-function updateNameTable(names: TagNames, set_name: string, tag_id: TagID) {
+function updateNameTable(names: TagNameTable, set_name: string, tag_id: TagID) {
   return names.set(toLowerTagname(set_name), tag_id)
 }
-function deleteNameTable(names: TagNames, name: string) {
+function deleteNameTable(names: TagNameTable, name: string) {
   return names.delete(toLowerTagname(name))
 }
+// function
 
-function addTagToPool(
-  map: TagPool['map'],
-  names: TagPool['names'],
+function constructTagIndex(tag_map: TagPool['map']) {
+  const tags = [...tag_map.values()]
+  return {
+    name: sort((a, b) => {
+      return a.name.localeCompare(b.name, 'zh-u-kn-true')
+    }, tags).map(tag => tag.id)
+  }
+}
+
+function setTagToPool(
+  pool: TagPool,
   tag: Tag
-) {
-  if (map.has(tag.id)) {
+): TagPool {
+  if (pool.map.has(tag.id)) {
     throw new Error(`addTagToPool failure: duplicate tag.id(tag={ id:${tag.id}, tagname:${tag.name} })`)
-  } else if (findNameTable(names, tag.name)) {
+  } else if (findNameTable(pool.name_table, tag.name)) {
     throw new Error(`addTagToPool failure: duplicate tag.name(tag={ id:${tag.id}, tagname:${tag.name} })`)
   } else {
-    map.set(tag.id, tag)
-    updateNameTable(names, tag.name, tag.id)
+    const new_map = pool.map.set(tag.id, tag)
+    return {
+      ...pool,
+      map: pool.map.set(tag.id, tag),
+      index: constructTagIndex(new_map),
+      name_table: updateNameTable(pool.name_table, tag.name, tag.id)
+    }
   }
 }
 
 export function createTagPool(tags: Tag[]): TagPool {
-  const names: TagPool['names'] = new Map()
-  const map: TagPool['map'] = new Map()
+  let name_table: TagNameTable = Immutable.Map()
+  let map: TagPool['map'] = Immutable.Map()
+
   for (let i = 0; i < tags.length; ++i) {
-    addTagToPool(map, names, tags[i])
+    map = map.set(tags[i].id, tags[i])
+    name_table = updateNameTable(name_table, tags[i].name, tags[i].id)
   }
 
   return {
     latest_id: tagID(maxId(tags)),
-    index: {
-      name: sort((a, b) => {
-        return a.name.localeCompare(b.name, 'zh-u-kn-true')
-      }, tags).map(tag => tag.id)
-    },
-    names,
+    index: constructTagIndex(map),
+    name_table,
     map
   }
 }
@@ -75,10 +93,12 @@ export function tagnameHasDuplicate(pool: TagPool, tag_name: string) {
 }
 
 export function getTagIdByName(pool: TagPool, tag_name: string) {
-  return findNameTable(pool.names, tag_name)
+  return findNameTable(pool.name_table, tag_name)
 }
 
-export function newTag(pool: TagPool, { name, attributes }: CreateTagForm) {
+export function newTag(
+  pool: TagPool, { name, attributes }: CreateTagForm
+): readonly [Tag, TagPool] {
   if (name.length === 0) {
     throw new Error('can\'t set empty tagname')
   } else if (tagnameHasDuplicate(pool, name)) {
@@ -86,19 +106,25 @@ export function newTag(pool: TagPool, { name, attributes }: CreateTagForm) {
   } else {
     const new_id = (pool.latest_id + 1) as TagID
     const new_tag = constructTag(new_id, { name, attributes })
-    addTagToPool(pool.map, pool.names, new_tag)
-    pool.latest_id = new_id
-    return new_tag
+    return [ new_tag, {
+      ...setTagToPool(pool, new_tag),
+      latest_id: new_id
+    } ]
   }
 }
 
-export function deleteTag(pool: TagPool, id: TagID) {
+export function deleteTag(pool: TagPool, id: TagID): TagPool {
   const found_tag = getTag(pool, id)
-  pool.map.delete(found_tag.id)
-  deleteNameTable(pool.names, found_tag.name)
+  return {
+    ...pool,
+    map: pool.map.delete(found_tag.id),
+    name_table: deleteNameTable(pool.name_table, found_tag.name)
+  }
 }
 
-function listingTag() {}
+export function TagOperation(p: TagPool) {
+  return PoolOperation<TagPool, Tag>(p)
+}
 
 export type UpdateTagForm = Partial<CreateTagForm>
 
@@ -106,7 +132,7 @@ export function updateTag(
   pool: TagPool,
   id: TagID,
   update: UpdateTagForm
-): Tag {
+): TagPool {
   const source_tag = getTag(pool, id)
   const new_name = update.name
   const need_update_name = (typeof new_name === 'string')
@@ -121,19 +147,25 @@ export function updateTag(
     throw new Error(`duplicate tag name: ${new_name}`)
   }
   else {
-    if (need_update_name) {
-      deleteNameTable(pool.names, source_tag.name)
-      updateNameTable(pool.names, new_name, source_tag.id)
-    }
-
     const updated_tag = {
       ...source_tag,
       ...update,
     }
 
-    pool.map.set(source_tag.id, updated_tag)
+    const new_map = pool.map.set(source_tag.id, updated_tag)
 
-    return updated_tag
+    return {
+      ...pool,
+      map: new_map,
+      index: constructTagIndex(new_map),
+
+      name_table: !need_update_name ? pool.name_table : (
+        updateNameTable(
+          deleteNameTable(pool.name_table, source_tag.name),
+          new_name, source_tag.id
+        )
+      ),
+    }
   }
 }
 
@@ -147,7 +179,7 @@ export function searchTag(tag_pool: TagPool, find_tag_name: string) {
   const limit = 30
   let found = 0
   const found_ids: TagID[] = []
-  for (const tag_name of tag_pool.names.keys()) {
+  for (const tag_name of tag_pool.name_table.keys()) {
     if (found < limit) {
       if (tag_name.indexOf(toLowerTagname(find_tag_name)) !== -1) {
         found += 1

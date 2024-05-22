@@ -13,13 +13,15 @@ import proxy from 'koa-proxies'
 import { Config } from '../config'
 import { RepositoryInstance, saveStorageSync } from '../init'
 
-import { FilterRule, ItemIndexedField, addItem, deleteItem, deleteTagAndUpdateItems, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
+import { FilterRule, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
 import { CreateItemForm, ItemID } from '../core/Item'
 import { FileID, constructFileID } from '../core/File'
 import { CreateTagForm, Tag, TagID } from '../core/Tag'
-import { UpdateTagForm, deleteTag, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
+import { UpdateTagForm, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
 import { generateThumb, getImageDimession } from '../utils/generate-image'
 import { initDirectory, prepareWriteDirectory } from '../utils/directory'
+import { deleteTagAndUpdateItemsOperate } from '../core/Pool'
+import { JSONObject } from 'server/utils/json'
 
 function backFail(
   ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>,
@@ -144,69 +146,80 @@ export type ActionName = keyof ActionRouteTable
 export type ActionPayload<N extends ActionName> = ParamType<ActionRouteTable[N]>
 
 function TagActionRoute(
-  tag_pool: RepositoryInstance['tag_pool'],
-  item_pool: RepositoryInstance['item_pool'],
+  {
+    tagpool_op: [ tagPool, tagOp, setTagPool ],
+    itempool_op: [ itemPool, , setItemPool ]
+  }: RepositoryInstance
 ) {
   return {
-    newTag(form: CreateTagForm) {
-      return newTag(tag_pool, form)
+    newTag(form: CreateTagForm): Tag {
+      return tagOp(newTag, form)
     },
 
-    deleteTag(payload: { tag_id: TagID }) {
-      deleteTagAndUpdateItems(tag_pool, item_pool, payload.tag_id)
+    deleteTag(payload: { tag_id: TagID }): { message: 'done' } {
+      deleteTagAndUpdateItemsOperate(
+        payload.tag_id,
+        [ tagPool, setTagPool ],
+        [ itemPool, setItemPool ]
+      )
       return { message: 'done' }
     },
 
     getTag(payload: { tag_id: TagID }) {
-      return getTag(tag_pool, payload.tag_id)
+      return getTag(tagPool(), payload.tag_id)
     },
 
     tagnameHasDuplicate(tagname_list: string[]): boolean[] {
       return tagname_list.map((tagname) => {
-        return tagnameHasDuplicate(tag_pool, tagname)
+        return tagnameHasDuplicate(tagPool(), tagname)
       })
     },
 
     getTagIfNoexistsWillCreateIt(tagname: string): Tag {
-      if (tagnameHasDuplicate(tag_pool, tagname)) {
-        const tagid = getTagIdByName(tag_pool, tagname) as TagID
-        return getTag(tag_pool, tagid)
+      if (tagnameHasDuplicate(tagPool(), tagname)) {
+        const tagid = getTagIdByName(tagPool(), tagname) as TagID
+        return getTag(tagPool(), tagid)
       } else {
-        return newTag(tag_pool, { name: tagname, attributes: {} })
+        const new_tag = tagOp(newTag, { name: tagname, attributes: {} })
+        return new_tag
       }
     },
 
-    updateTag(payload: { id: TagID; data: UpdateTagForm }) {
-      return updateTag(tag_pool, payload.id, payload.data)
+    updateTag(payload: { id: TagID; data: UpdateTagForm }): { message: 'done' } {
+      tagOp(updateTag, payload.id, payload.data)
+      return { message: 'done' }
     },
 
     searchTag(find_tag_name: string) {
-      return idList2Tags(tag_pool, searchTag(tag_pool, find_tag_name))
+      return idList2Tags(tagPool(), searchTag(tagPool(), find_tag_name))
     },
   }
 }
 
 function ItemActionRoute(
-  item_pool: RepositoryInstance['item_pool']
+  {
+    tagpool_op: [ tagPool, tagOp, setTagPool ],
+    itempool_op: [ itemPool, itemOp, setItemPool ]
+  }: RepositoryInstance
 ) {
   return {
     addItem(payload: CreateItemForm) {
-      return addItem(item_pool, payload)
+      return itemOp(addItem, payload)
     },
 
     getItem(payload: { item_id: ItemID }) {
-      const item = getItem(item_pool, payload.item_id)
-      return item
+      return getItem(itemPool(), payload.item_id)
     },
 
     getItems(ids: ItemID[]) {
       return ids.map(id => {
-        return getItem(item_pool, id)
+        return getItem(itemPool(), id)
       })
     },
 
-    deleteItem(will_del_id: ItemID) {
-      return deleteItem(item_pool, will_del_id)
+    deleteItem(will_del_id: ItemID): { message: 'done' } {
+      itemOp(deleteItem, will_del_id)
+      return { message: 'done' }
     },
 
     listing(payload: {
@@ -217,9 +230,9 @@ function ItemActionRoute(
       filter_rules: FilterRule[]
     }) {
       return idList2Items(
-        item_pool,
+        itemPool(),
         listingItem(
-          item_pool,
+          itemPool(),
           payload.sort_by ? payload.sort_by : 'id',
           payload.after_id,
           payload.limit,
@@ -230,24 +243,23 @@ function ItemActionRoute(
     },
 
     updateItem(payload: { id: ItemID, data: Partial<CreateItemForm> }) {
-      updateItem(item_pool, payload.id, payload.data)
+      itemOp(updateItem, payload.id, payload.data)
       return { message: 'done' }
     },
   }
 }
 
 function ActionRoute(
-  // { action, payload }: { action: ActionName; payload: Actions },
   repo: RepositoryInstance,
   // backData: (body: any, status?: number) => void,
   // backFail: (status: number, message: string) => void,
 ) {
   return {
-    ...ItemActionRoute(repo.item_pool),
+    ...ItemActionRoute(repo),
 
-    ...TagActionRoute(repo.tag_pool, repo.item_pool),
+    ...TagActionRoute(repo),
 
-    save() {
+    save(): { message: 'done' } {
       saveStorageSync(repo)
       return { message: 'done' }
     },
