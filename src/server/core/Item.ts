@@ -27,8 +27,8 @@ type NullableFileIDItemFields = {
   original: Original
 }
 
-// 注意，增加了 FileID 的字段后，要去 collectReferencedFileIdTable 处理对应的逻辑
-// 不然清理文件的时候将会把新增字段的 FileID 给抹去！
+// 注意，增加了 FileID 类型的字段后，要去 collectReferencedFileIdTable 处理对应的逻辑
+// 不然清理文件的时候将会把新增字段的 FileID 所指向的文件给抹去！
 export type Item = ItemDateFields<Date> & NullableFileIDItemFields & {
   id: ItemID
   title: string

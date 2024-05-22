@@ -15,7 +15,7 @@ export type Tag = {
   attributes: TagAttributes
 }
 
-export function createTag(
+export function constructTag(
   id: number,
   form: CreateTagForm
 ): Tag {

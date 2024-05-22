@@ -111,7 +111,7 @@ async function getDirectoryFileRecursive(dir: string): Promise<string[]> {
 async function collectUnReferencedFiles(
   filepool_path: string,
   pool: ItemPool,
-  foundCallback: (file: string) => void
+  foundCallback: (file: string, found: boolean) => void
 ) {
   const refs = collectReferencedFileIds(pool)
   const splits = await fs.promises.readdir(filepool_path)
@@ -126,12 +126,9 @@ async function collectUnReferencedFiles(
         ...unrefs,
         ...file_path_list.filter(p => {
           const file_id = path.basename(p) as FileID
-          if (!refs.includes(file_id)) {
-            foundCallback(p)
-            return true
-          } else {
-            return false
-          }
+          const found = !refs.includes(file_id)
+          foundCallback(p, found)
+          return found
         })
       ]
     }

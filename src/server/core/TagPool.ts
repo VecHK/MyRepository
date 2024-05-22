@@ -1,6 +1,6 @@
 import { sort } from 'ramda'
 import { maxId } from './ID'
-import { CreateTagForm, Tag, TagAttributes, TagID, createTag, tagID } from './Tag'
+import { CreateTagForm, Tag, TagAttributes, TagID, constructTag, tagID } from './Tag'
 
 export type TagPool = {
   latest_id: TagID
@@ -14,8 +14,14 @@ function addTagToPool(
   names: TagPool['names'],
   tag: Tag
 ) {
-  map.set(tag.id, tag)
-  names.set(tag.name, tag.id)
+  if (map.has(tag.id)) {
+    throw new Error(`addTagToPool failure: duplicate tag.id(tag={ id:${tag.id}, tagname:${tag.name} })`)
+  } else if (names.has(tag.name)) {
+    throw new Error(`addTagToPool failure: duplicate tag.name(tag={ id:${tag.id}, tagname:${tag.name} })`)
+  } else {
+    map.set(tag.id, tag)
+    names.set(tag.name, tag.id)
+  }
 }
 
 export function createTagPool(tags: Tag[]): TagPool {
@@ -59,7 +65,7 @@ export function newTag(pool: TagPool, { name, attributes }: CreateTagForm) {
     throw new Error(`duplicate tag name: ${name}`)
   } else {
     const new_id = (pool.latest_id + 1) as TagID
-    const new_tag = createTag(new_id, { name, attributes })
+    const new_tag = constructTag(new_id, { name, attributes })
     addTagToPool(pool.map, pool.names, new_tag)
     pool.latest_id = new_id
     return new_tag

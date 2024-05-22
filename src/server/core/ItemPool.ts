@@ -125,7 +125,7 @@ export function addItem(pool: ItemPool, create_form: CreateItemForm): Item {
     if (create_form.original.includes(new_item.id)) {
       throw new Error('updateItem: 子项目不能包括自己')
     } else {
-      setItemParent(pool, create_form.original, new_item.id)
+      setItemsParent(pool, create_form.original, new_item.id)
     }
   }
 
@@ -166,7 +166,7 @@ export function getItem(pool: ItemPool, id: number): Item {
 
 // }
 
-function setItemParent(pool: ItemPool, child_item_ids: ItemID[], parent: Item['parent']) {
+function setItemsParent(pool: ItemPool, child_item_ids: ItemID[], parent: Item['parent']) {
   for (const item_id of child_item_ids) {
     const item = getItemById(pool, item_id)
     if (item) {
@@ -178,8 +178,8 @@ function setItemParent(pool: ItemPool, child_item_ids: ItemID[], parent: Item['p
   }
 }
 
-function removeItemParent(pool: ItemPool, child_item_ids: ItemID[]) {
-  return setItemParent(pool, child_item_ids, null)
+function removeItemsParent(pool: ItemPool, child_item_ids: ItemID[]) {
+  return setItemsParent(pool, child_item_ids, null)
 }
 
 export function updateItem(pool: ItemPool, id: number, updateForm: Partial<CreateItemForm>): void {
@@ -197,13 +197,13 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<Creat
           throw new Error('updateItem: 子项目不能包括自己')
         } else {
           if (Array.isArray(found_item.original)) {
-            removeItemParent(pool, found_item.original)
+            removeItemsParent(pool, found_item.original)
           }
-          setItemParent(pool, updateForm.original, found_item.id)
+          setItemsParent(pool, updateForm.original, found_item.id)
         }
       } else {
         if (Array.isArray(found_item.original)) {
-          removeItemParent(pool, found_item.original)
+          removeItemsParent(pool, found_item.original)
         }
       }
     }
