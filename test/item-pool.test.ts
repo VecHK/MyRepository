@@ -8,7 +8,7 @@ import { CreateItemForm, ItemID, Item_raw, itemID, parseRawItems } from '../src/
 import { createTagPool, deleteTag, getTag, newTag, updateTag } from '../src/server/core/TagPool'
 import { tagID } from '../src/server/core/Tag'
 import { timeout } from 'vait'
-import { partial } from 'ramda'
+import { partial, range } from 'ramda'
 import { createForm } from './common'
 
 beforeEach(() => {
@@ -151,6 +151,7 @@ test('Filter Rule(is_child_item)', async () => {
 
       const JSONData = JSON.stringify([...item_pool.map.values()])
       {
+        updateItem(item_pool, new_item.id, { original: null })
         deleteItem(item_pool, new_item.id)
         const list = listingItem(item_pool, 'id', undefined, 0, true, [{
           name: 'is_child_item',
@@ -345,8 +346,171 @@ test('deleteItem', () => {
   }))
 })
 
-test.todo('delete parent item')
-test.todo('delete child item')
+test('create parent item', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+
+  const childs = range(0, 4).map(()=> addItem(pool, createForm({ title: 'child' })))
+  const parent = addItem(pool, createForm({
+    title: 'parent',
+    original: childs.map(item => item.id)
+  }))
+
+  for (const child of childs) {
+    expect(getItem(pool, child.id).parent).toBe(parent.id)
+  }
+})
+
+test('prevent modify item\'s parent field', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+
+  const childs = range(0, 4).map(()=> addItem(pool, createForm({ title: 'child' })))
+  const parent = addItem(pool, createForm({
+    title: 'parent',
+    original: childs.map(item => item.id)
+  }))
+
+  for (const child of childs) {
+    expect(() => {
+      updateItem(pool, child.id, { parent: null })
+    }).toThrow()
+    expect(() => {
+      updateItem(pool, child.id, { parent: 221 as ItemID })
+    }).toThrow()
+  }
+
+  expect(() => {
+    updateItem(
+      pool,
+      addItem(pool, createForm({})).id,
+      { parent: parent.id }
+    )
+  }).toThrow()
+})
+
+test('prevent spec non-exists child', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+
+  const nonexists = addItem(pool, createForm({ title: 'child' }))
+  deleteItem(pool, nonexists.id)
+  expect(() => getItem(pool, nonexists.id)).toThrow()
+
+  const child = addItem(pool, createForm({ title: 'child' }))
+
+  expect(() => {
+    addItem(pool, createForm({
+      title: 'parent',
+      original: [nonexists.id]
+    }))
+  }).toThrow()
+
+  expect(() => {
+    addItem(pool, createForm({
+      title: 'parent',
+      original: [nonexists.id, child.id]
+    }))
+  }).toThrow()
+
+  const item = addItem(pool, createForm({}))
+  expect(() => {
+    updateItem(pool, item.id, {
+      original: [nonexists.id]
+    })
+  }).toThrow()
+  expect(() => {
+    updateItem(pool, item.id, {
+      original: [nonexists.id, child.id]
+    })
+  }).toThrow()
+})
+
+test('update item\'s original', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+
+  const childs = range(0, 4).map(()=> addItem(pool, createForm({ title: 'child' })))
+  const parent = addItem(pool, createForm({
+    title: 'parent',
+    original: []
+  }))
+
+  const child_ids = childs.map(ch => ch.id)
+
+  {
+    updateItem(pool, parent.id, { original: child_ids })
+    expect(
+      getItem(pool, parent.id).original
+    ).toBe(child_ids)
+    for (const child of childs) {
+      expect(getItem(pool, child.id).parent).toBe(parent.id)
+    }
+  }
+
+  {
+    updateItem(pool, parent.id, { original: child_ids })
+    updateItem(pool, parent.id, { original: [] })
+
+    assert(getItem(pool, parent.id).original !== null)
+
+    assert( Array.isArray(getItem(pool, parent.id).original) )
+
+    assert( getItem(pool, parent.id).original?.length === 0 )
+
+    for (const child of childs) {
+      expect(getItem(pool, child.id).parent).toBe(null)
+    }
+  }
+
+  {
+    updateItem(pool, parent.id, { original: child_ids })
+    updateItem(pool, parent.id, { original: null })
+    assert(getItem(pool, parent.id).original === null)
+    for (const child of childs) {
+      expect(getItem(pool, child.id).parent).toBe(null)
+    }
+  }
+})
+
+test('prevent delete child item', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+  const child_a = addItem(pool, createForm({}))
+  const child_b = addItem(pool, createForm({}))
+  const child_c = addItem(pool, createForm({}))
+
+  const parent = addItem(pool, createForm({ original: [ child_a.id, child_b.id, child_c.id ] }))
+
+  expect(getItem(pool, parent.id).original).toStrictEqual([ child_a.id, child_b.id, child_c.id ])
+
+  expect(() => deleteItem(pool, child_a.id)).toThrow()
+  expect(() => deleteItem(pool, child_b.id)).toThrow()
+  expect(() => deleteItem(pool, child_c.id)).toThrow()
+
+  expect(getItem(pool, parent.id).original).toStrictEqual([ child_a.id, child_b.id, child_c.id ])
+})
+
+test('prevent delete parent item that has childs', () => {
+  const pool = createItemPool(parseRawItems(generateRawItems()))
+
+  const childs = range(0, 4).map(()=> addItem(pool, createForm({ title: 'child' })))
+  const child_ids = childs.map(ch => ch.id)
+  const parent = addItem(pool, createForm({
+    title: 'parent',
+    original: child_ids
+  }))
+
+  expect(() => deleteItem(pool, parent.id)).toThrow()
+  expect(getItem(pool, parent.id).original).toStrictEqual(child_ids)
+  for (const child of childs) {
+    expect(getItem(pool, child.id).parent).toBe(parent.id)
+  }
+
+  {
+    const empty_parent = addItem(pool, createForm({
+      title: 'empty parent',
+      original: []
+    }))
+    deleteItem(pool, empty_parent.id)
+    expect(() => getItem(pool, empty_parent.id)).toThrow()
+  }
+})
 
 test('updateItem', () => {
   const pool = createItemPool(parseRawItems(generateRawItems()))

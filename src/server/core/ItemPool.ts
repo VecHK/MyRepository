@@ -133,17 +133,20 @@ export function addItem(pool: ItemPool, create_form: CreateItemForm): Item {
 }
 
 export function deleteItem(pool: ItemPool, will_del_id: number): Item {
-  // will_del_id = itemID(will_del_id)
   const found_item = getItemById(pool, will_del_id)
   if (found_item === null) {
     throw new Error(`removeItem: Item(id=${will_del_id}) not found`)
-  } else {
-    updateItem(pool, found_item.id, { original: null })
+  }
+  else if (found_item.parent) {
+    throw new Error(`removeItem: Item(id=${will_del_id}) can't delete because these is a child item`)
+  }
+  else if (Array.isArray(found_item.original) && (found_item.original.length !== 0)) {
+    throw new Error(`removeItem: Item(id=${will_del_id}) can't delete because these parent item has childs`)
+  }
+  else {
+    updateItem(pool, found_item.id, { original: null }) // 通过指定original=null来删除子项目
     pool.map.delete(found_item.id)
-    const idx = pool.index.id.indexOf(found_item.id)
-    if (idx !== -1) {
-      pool.index = constructItemIndex(pool.map)
-    }
+    pool.index = constructItemIndex(pool.map)
     return found_item
   }
 }
@@ -161,20 +164,13 @@ export function getItem(pool: ItemPool, id: number): Item {
   }
 }
 
-// function changeOriginal(pool: ItemPool, id: ItemID, new_original: Item['original']) {
-//   const found_item = getItemById(pool, id)
-
-// }
-
 function setItemsParent(pool: ItemPool, child_item_ids: ItemID[], parent: Item['parent']) {
   for (const item_id of child_item_ids) {
-    const item = getItemById(pool, item_id)
-    if (item) {
-      pool.map.set(item.id, {
-        ...item,
-        parent
-      })
-    }
+    const item = getItem(pool, item_id)
+    pool.map.set(item.id, {
+      ...item,
+      parent
+    })
   }
 }
 
