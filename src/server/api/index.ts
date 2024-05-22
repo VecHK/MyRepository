@@ -13,11 +13,11 @@ import proxy from 'koa-proxies'
 import { Config } from '../config'
 import { RepositoryInstance, saveStorageSync } from '../init'
 
-import { FilterRule, addItem, deleteItem, deleteTagAndUpdateItems, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
+import { FilterRule, ItemIndexedField, addItem, deleteItem, deleteTagAndUpdateItems, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
 import { CreateItemForm, ItemID } from '../core/Item'
 import { FileID, constructFileID } from '../core/File'
 import { CreateTagForm, Tag, TagID } from '../core/Tag'
-import { UpdateTagForm, deleteTag, getTag, getTagByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
+import { UpdateTagForm, deleteTag, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
 import { generateThumb, getImageDimession } from '../utils/generate-image'
 import { initDirectory, prepareWriteDirectory } from '../utils/directory'
 
@@ -169,7 +169,7 @@ function TagActionRoute(
 
     getTagIfNoexistsWillCreateIt(tagname: string): Tag {
       if (tagnameHasDuplicate(tag_pool, tagname)) {
-        const tagid = getTagByName(tag_pool, tagname) as TagID
+        const tagid = getTagIdByName(tag_pool, tagname) as TagID
         return getTag(tag_pool, tagid)
       } else {
         return newTag(tag_pool, { name: tagname, attributes: {} })
@@ -209,12 +209,18 @@ function ItemActionRoute(
       return deleteItem(item_pool, will_del_id)
     },
 
-    listing(payload: { after_id?: ItemID; desc?: boolean; limit: number; filter_rules: FilterRule[] }) {
+    listing(payload: {
+      sort_by?: ItemIndexedField
+      after_id?: ItemID
+      desc?: boolean
+      limit: number
+      filter_rules: FilterRule[]
+    }) {
       return idList2Items(
         item_pool,
         listingItem(
           item_pool,
-          'id',
+          payload.sort_by ? payload.sort_by : 'id',
           payload.after_id,
           payload.limit,
           Boolean(payload.desc),

@@ -1,4 +1,4 @@
-import { CreateItemForm } from '../src/server/core/Item'
+import { CreateItemForm, Item_raw, itemID } from '../src/server/core/Item'
 
 export function createForm(append: Partial<CreateItemForm> = {}): CreateItemForm {
   return {
@@ -13,4 +13,23 @@ export function createForm(append: Partial<CreateItemForm> = {}): CreateItemForm
     release_date: null,
     ...append
   }
+}
+
+export function initPlainRawItem(id: number): Item_raw {
+  return {
+    ...createForm(),
+    id: itemID(id),
+    create_date: (new Date).toJSON(),
+    update_date: (new Date).toJSON(),
+  }
+}
+
+export const generateRawItems = (): Item_raw[] => {
+  return [
+    initPlainRawItem(1),
+    initPlainRawItem(2),
+    initPlainRawItem(9),
+    initPlainRawItem(3),
+    initPlainRawItem(4),
+  ]
 }

@@ -9,7 +9,7 @@ import { createTagPool, deleteTag, getTag, newTag, updateTag } from '../src/serv
 import { tagID } from '../src/server/core/Tag'
 import { timeout } from 'vait'
 import { partial, range } from 'ramda'
-import { createForm } from './common'
+import { createForm, generateRawItems } from './common'
 
 beforeEach(() => {
   // fs.rmSync(config_object.storage_path, { recursive: true, force: true });
@@ -17,25 +17,6 @@ beforeEach(() => {
   //   fs.existsSync(config_object.storage_path)
   // ).toEqual(false)
 })
-
-function initPlainRawItem(id: number): Item_raw {
-  return {
-    ...createForm(),
-    id: itemID(id),
-    create_date: (new Date).toJSON(),
-    update_date: (new Date).toJSON(),
-  }
-}
-
-const generateRawItems = (): Item_raw[] => {
-  return [
-    initPlainRawItem(1),
-    initPlainRawItem(2),
-    initPlainRawItem(9),
-    initPlainRawItem(3),
-    initPlainRawItem(4),
-  ]
-}
 
 test('测试分页', async () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
@@ -520,42 +501,7 @@ test('updateItem', () => {
   expect(getItem(pool, 9).title).toBe(title)
 })
 
-test('newTag', () => {
-  const items_pool = createItemPool(parseRawItems(generateRawItems()))
-  const tag_pool = createTagPool([
-    { id: tagID(1), name: 'name', attributes: {} }
-  ])
-
-  const new_tag = newTag(tag_pool, { name: 'new_name', attributes: {} })
-
-  const found_tag = getTag(tag_pool, new_tag.id)
-  expect(found_tag.name).toBe(new_tag.name)
-  expect(found_tag.id).toBe(new_tag.id)
-
-  {
-    const new_item = addItem(items_pool, {
-      ...createForm(),
-      tags: [ new_tag.id ]
-    })
-
-    const found_item = getItem(items_pool, new_item.id)
-    expect(found_item.tags.length).toBe(1)
-    assert(found_item.tags.includes(new_tag.id))
-  }
-
-  {
-    const new_item = addItem(items_pool, createForm())
-    updateItem(items_pool, new_item.id, {
-      tags: [ new_tag.id ]
-    })
-
-    const found_item = getItem(items_pool, new_item.id)
-    expect(found_item.tags.length).toBe(1)
-    assert(found_item.tags.includes(new_tag.id))
-  }
-})
-
-test('deleteTag', () => {
+test('deleteTagAndUpdateItems', () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
   const tag_pool = createTagPool([
     { id: tagID(1), name: 'name', attributes: {} }
@@ -622,50 +568,5 @@ test('deleteTag', () => {
         deleteTagAndUpdateItems(tag_pool, item_pool, removed_tag.id)
       ).toThrow()
     }
-  }
-})
-
-test('updateTag', async () => {
-  const item_pool = createItemPool(parseRawItems(generateRawItems()))
-  const tag_pool = createTagPool([
-    { id: tagID(1), name: 'name', attributes: {} }
-  ])
-
-  {
-    const updated_tag = updateTag(tag_pool, tagID(1), { name: 'newname' })
-    assert(updated_tag.name === 'newname')
-    assert(updated_tag.id === 1)
-
-    const found_tag = getTag(tag_pool, tagID(1))
-    assert(found_tag.name === 'newname')
-    assert(found_tag.id === 1)
-  }
-})
-
-test('unique tag_id', async () => {
-  const item_pool = createItemPool(parseRawItems(generateRawItems()))
-  const tag_pool = createTagPool([
-    { id: tagID(1), name: 'name', attributes: {} }
-  ])
-  {
-    const new_item = addItem(item_pool, createForm({
-      tags: [tagID(1), tagID(1)]
-    }))
-    expect(new_item.tags.length).toBe(1)
-    expect(new_item.tags[0]).toBe(tagID(1))
-  }
-  {
-    const item = addItem(item_pool, createForm({
-      tags: []
-    }))
-    expect(item.tags.length).toBe(0)
-
-    updateItem(item_pool, item.id, {
-      tags: [tagID(1), tagID(1)]
-    })
-
-    const updated_item = getItem(item_pool, item.id)
-    expect(updated_item.tags.length).toBe(1)
-    expect(updated_item.tags[0]).toBe(tagID(1))
   }
 })

@@ -1,12 +1,30 @@
-import { sort } from 'ramda'
-import { maxId } from './ID'
+import { sort, toLower } from 'ramda'
+import ID, { Id, maxId } from './ID'
 import { CreateTagForm, Tag, TagAttributes, TagID, constructTag, tagID } from './Tag'
+
+type LowercaseTagName = ID<string, 'LowercaseTagName'>
+
+type TagNames = Map<LowercaseTagName, Tag['id']>
 
 export type TagPool = {
   latest_id: TagID
   index: Record<'name', TagID[]>
-  names: Map<Tag['name'], Tag['id']>
+  names: TagNames
   map: Map<TagID, Tag>
+}
+
+function toLowerTagname(n: string) {
+  return toLower(n) as LowercaseTagName
+}
+
+function findNameTable(names: TagNames, find_name: string) {
+  return names.get(toLowerTagname(find_name))
+}
+function updateNameTable(names: TagNames, set_name: string, tag_id: TagID) {
+  return names.set(toLowerTagname(set_name), tag_id)
+}
+function deleteNameTable(names: TagNames, name: string) {
+  return names.delete(toLowerTagname(name))
 }
 
 function addTagToPool(
@@ -16,11 +34,11 @@ function addTagToPool(
 ) {
   if (map.has(tag.id)) {
     throw new Error(`addTagToPool failure: duplicate tag.id(tag={ id:${tag.id}, tagname:${tag.name} })`)
-  } else if (names.has(tag.name)) {
+  } else if (findNameTable(names, tag.name)) {
     throw new Error(`addTagToPool failure: duplicate tag.name(tag={ id:${tag.id}, tagname:${tag.name} })`)
   } else {
     map.set(tag.id, tag)
-    names.set(tag.name, tag.id)
+    updateNameTable(names, tag.name, tag.id)
   }
 }
 
@@ -53,15 +71,17 @@ export function getTag(pool: TagPool, id: TagID) {
 }
 
 export function tagnameHasDuplicate(pool: TagPool, tag_name: string) {
-  return getTagByName(pool, tag_name) !== undefined
+  return getTagIdByName(pool, tag_name) !== undefined
 }
 
-export function getTagByName(pool: TagPool, tag_name: string) {
-  return pool.names.get(tag_name)
+export function getTagIdByName(pool: TagPool, tag_name: string) {
+  return findNameTable(pool.names, tag_name)
 }
 
 export function newTag(pool: TagPool, { name, attributes }: CreateTagForm) {
-  if (tagnameHasDuplicate(pool, name)) {
+  if (name.length === 0) {
+    throw new Error('can\'t set empty tagname')
+  } else if (tagnameHasDuplicate(pool, name)) {
     throw new Error(`duplicate tag name: ${name}`)
   } else {
     const new_id = (pool.latest_id + 1) as TagID
@@ -75,7 +95,7 @@ export function newTag(pool: TagPool, { name, attributes }: CreateTagForm) {
 export function deleteTag(pool: TagPool, id: TagID) {
   const found_tag = getTag(pool, id)
   pool.map.delete(found_tag.id)
-  pool.names.delete(found_tag.name)
+  deleteNameTable(pool.names, found_tag.name)
 }
 
 function listingTag() {}
@@ -89,20 +109,21 @@ export function updateTag(
 ): Tag {
   const source_tag = getTag(pool, id)
   const new_name = update.name
+  const need_update_name = (typeof new_name === 'string')
 
-  const need_update_name =
-    (typeof new_name === 'string') &&
-    (new_name !== source_tag.name)
-
-  if (
+  if (need_update_name && (new_name.length) === 0) {
+    throw new Error('can\'t set empty tagname')
+  }
+  else if (
     need_update_name &&
     tagnameHasDuplicate(pool, new_name)
   ) {
     throw new Error(`duplicate tag name: ${new_name}`)
-  } else {
+  }
+  else {
     if (need_update_name) {
-      pool.names.delete(source_tag.name)
-      pool.names.set(new_name, source_tag.id)
+      deleteNameTable(pool.names, source_tag.name)
+      updateNameTable(pool.names, new_name, source_tag.id)
     }
 
     const updated_tag = {
@@ -125,21 +146,20 @@ export function idList2Tags(tag_pool: TagPool, id_list: TagID[]): Tag[] {
 export function searchTag(tag_pool: TagPool, find_tag_name: string) {
   const limit = 30
   let found = 0
-  const found_tags: TagID[] = []
+  const found_ids: TagID[] = []
   for (const tag_name of tag_pool.names.keys()) {
     if (found < limit) {
-      console.log('tag', find_tag_name, tag_name)
-      if (tag_name.indexOf(find_tag_name) !== -1) {
+      if (tag_name.indexOf(toLowerTagname(find_tag_name)) !== -1) {
         found += 1
-        const tag = getTagByName(tag_pool, tag_name) as unknown as TagID // 不可能是 undefined
-        found_tags.push(tag)
+        const tag = getTagIdByName(tag_pool, tag_name) as TagID // 不可能是 undefined
+        found_ids.push(tag)
       }
     } else {
-      return found_tags
+      return found_ids
     }
   }
-  console.log(tag_pool.map)
-  console.log(tag_pool.names)
-  console.log('found_tags', found_tags)
-  return found_tags
+  // console.log(tag_pool.map)
+  // console.log(tag_pool.names)
+  // console.log('found_ids', found_ids)
+  return found_ids
 }
