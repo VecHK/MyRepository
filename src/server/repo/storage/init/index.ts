@@ -2,13 +2,12 @@ import { IOsavePart, fullPartPath } from './io'
 
 // -------- 每次添加新的版本后，都得修改这块地方 --------
 // -------- 隔壁 update.ts 的 updater 也要更新   --------
-export type VERSIONS = 1
-export const CURRENT_VERSION: VERSIONS = 1
-import V1 from './v1-type'
-import { LoadPart, SavePart } from './v1'
+export type VERSIONS = 1 | 2
+export const CURRENT_VERSION: VERSIONS = 2
+import V2 from './v2-type'
+import { LoadPart, PoolStorage, SavePart } from './v2'
 import { update } from './update'
-export type LatestVersion = V1
-// export type AllVersion = LatestVersion // | V2
+export type LatestVersion = V2
 // ------------------------------------------------------
 
 import { mkdir } from 'fs/promises'
@@ -20,7 +19,6 @@ async function initStorage(storage_path: string) {
   switch (await checkDirectory(storage_path)) {
     case 'is_not_dir':
       throw new Error(`初始化存储库失败，路径[${storage_path}]并不是一个目录`)
-      break
 
     case 'notfound':
       await mkdir(storage_path, { recursive: true })
@@ -38,8 +36,6 @@ async function initStorage(storage_path: string) {
 
 export type StorageInstance = Awaited<ReturnType<typeof StorageInst>>
 
-function abc(a: number, b: string) {}
-
 export async function StorageInst(storage_path: string) {
   const status = await checkDirectory(storage_path)
 
@@ -50,6 +46,7 @@ export async function StorageInst(storage_path: string) {
     if (storage_version > CURRENT_VERSION) {
       throw new Error(`存储库版本(v${storage_version})超过程序所支持的版本(v${CURRENT_VERSION})`)
     } else if (storage_version < CURRENT_VERSION) {
+      console.warn('将开始更新存储库')
       await update(storage_path, storage_version)
       return StorageInst(storage_path)
     } else {

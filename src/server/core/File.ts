@@ -44,7 +44,7 @@ export function constructFileID(num: number, format: string = '') {
   if (num_valid !== null) {
     throw Error(num_valid)
   } else if (!isValidFileFormat(format)) {
-    throw Error('非法的format')
+    throw Error(`并不接受你所提供的format: ${format}`)
   } else {
     if (format.length) {
       return _fileId(`${num}.${format}`)

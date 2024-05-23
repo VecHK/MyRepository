@@ -122,10 +122,6 @@ export function deleteTag(pool: TagPool, id: TagID): TagPool {
   }
 }
 
-export function TagOperation(p: TagPool) {
-  return PoolOperation<TagPool, Tag>(p)
-}
-
 export type UpdateTagForm = Partial<CreateTagForm>
 
 export function updateTag(

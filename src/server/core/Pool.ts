@@ -1,9 +1,55 @@
-import { Memo } from 'new-vait'
-import { TagID } from './Tag'
+import { Memo, Signal } from 'new-vait'
+import { Tag, TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
 import { ItemPool, getItem, listingItem, updateItem } from './ItemPool'
+import { Item, ItemID } from './Item'
+import Immutable from 'immutable'
 
-export function PoolOperation<Pool, PoolItem>(pool: Pool) {
+export function diffItemPoolMap(map_new: ItemPool['map'], map_prev: ItemPool['map']) {
+  return map_new.reduce(({ dels, adds, changes }, item_new) => {
+    const item_prev = map_prev.get(item_new.id)
+    if (item_prev) {
+      const new_dels = dels.delete(item_new.id)
+      if (item_prev !== item_new) {
+        return { adds, dels: new_dels, changes: changes.set(item_prev.id, item_new) }
+      } else {
+        return { adds, changes, dels: new_dels }
+      }
+    } else {
+      return { dels, changes, adds: adds.set(item_new.id, item_new) }
+    }
+  }, {
+    dels: map_prev,
+    adds: Immutable.Map<ItemID, Item>(),
+    changes: Immutable.Map<ItemID, Item>(),
+  })
+}
+
+export function diffTagPoolMap(map_new: TagPool['map'], map_prev: TagPool['map']) {
+  return map_new.reduce(({ dels, adds, changes }, item_new) => {
+    const item_prev = map_prev.get(item_new.id)
+    if (item_prev) {
+      const new_dels = dels.delete(item_new.id)
+      if (item_prev !== item_new) {
+        return { adds, dels: new_dels, changes: changes.set(item_prev.id, item_new) }
+      } else {
+        return { adds, changes, dels: new_dels }
+      }
+    } else {
+      return { dels, changes, adds: adds.set(item_new.id, item_new) }
+    }
+  }, {
+    dels: map_prev,
+    adds: Immutable.Map<TagID, Tag>(),
+    changes: Immutable.Map<TagID, Tag>(),
+  })
+}
+
+export function PoolOperation<Pool, PoolItem>(
+  pool: Pool,
+  updatedCallback:
+    <OpFn>(opfn: OpFn, prev: Pool) => void
+) {
   const [getPool, setPool] = Memo<Pool>(pool)
   return [
     getPool,
@@ -14,21 +60,24 @@ export function PoolOperation<Pool, PoolItem>(pool: Pool) {
       I extends PoolItem,
       M extends Readonly<[I, IP]>,
       R extends IP | M,
-      OpFn extends (p: Pool, ...args: A) => R,
+      OpFn extends <Args extends A>(p: Pool, ...args: Args) => R,
       OpReturn extends ReturnType<OpFn>,
       RA = OpReturn extends IP ? void : I
     >(
       opFn: OpFn,
       ...args: A
     ): RA => {
-      const res = opFn(getPool(), ...args)
+      const res = opFn<A>(getPool(), ...args)
+      const prev = getPool()
 
       if (Array.isArray(res)) {
         const [ item, newpool ] = res as M
         setPool(newpool)
+        updatedCallback(opFn, prev)
         return item as unknown as RA
       } else {
         setPool(res as Pool)
+        updatedCallback(opFn, prev)
         return undefined as RA
       }
     },
@@ -48,7 +97,7 @@ export function deleteTagAndUpdateItems(
     logic: 'and'
   }])
 
-  const [getItemPool, itemOp] = PoolOperation(item_pool)
+  const [getItemPool, itemOp] = PoolOperation<ItemPool, Item>(item_pool, () => {})
 
   list.map(item_id => {
     return getItem(item_pool, item_id)

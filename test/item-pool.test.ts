@@ -10,7 +10,7 @@ import { TagID, tagID } from '../src/server/core/Tag'
 import { timeout } from 'vait'
 import { partial, range } from 'ramda'
 import { createForm, generateRawItems } from './common'
-import { deleteTagAndUpdateItemsOperate } from '../src/server/core/Pool'
+import { PoolOperation, deleteTagAndUpdateItemsOperate } from '../src/server/core/Pool'
 
 beforeEach(() => {
   // fs.rmSync(config_object.storage_path, { recursive: true, force: true });

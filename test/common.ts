@@ -1,4 +1,8 @@
-import { CreateItemForm, Item_raw, itemID } from '../src/server/core/Item'
+import { CreateItemForm, Item, Item_raw, itemID } from '../src/server/core/Item'
+import { ItemPool } from '../src/server/core/ItemPool'
+import { PoolOperation } from '../src/server/core/Pool'
+import { Tag } from '../src/server/core/Tag'
+import { TagPool } from '../src/server/core/TagPool'
 
 export function createForm(append: Partial<CreateItemForm> = {}): CreateItemForm {
   return {
@@ -32,4 +36,12 @@ export const generateRawItems = (): Item_raw[] => {
     initPlainRawItem(3),
     initPlainRawItem(4),
   ]
+}
+
+export function ItemOperation(p: ItemPool) {
+  return PoolOperation<ItemPool, Item>(p, () => {})
+}
+
+export function TagOperation(p: TagPool) {
+  return PoolOperation<TagPool, Tag>(p, () => {})
 }

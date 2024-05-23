@@ -4,8 +4,6 @@ import { FileID, name2number, parseFileID } from '../core/File'
 import { curry, partial, pipe } from 'ramda'
 import pathExists, { checkDirectory, initDirectory, initDirectorySync, prepareWriteDirectory } from '../utils/directory'
 import { Memo, Serial } from 'vait'
-import ID, { Id } from '../core/ID'
-import { Signal } from 'new-vait'
 import { ItemPool, collectReferencedFileIds } from '../core/ItemPool'
 
 export const __FILE_POOL_SPLIT_INTERVAL__ = 2_000
@@ -84,7 +82,7 @@ async function LatestFileNumber(filepool_path: string) {
 async function saveToFileUsingStream() {}
 async function loadFileStreamUsingStream() {}
 
-async function getDirectoryFileRecursive(dir: string): Promise<string[]> {
+export async function getDirectoryFileRecursive(dir: string): Promise<string[]> {
   const res = await checkDirectory(dir)
   if (res === 'dir') {
     const files = await fs.promises.readdir(dir)

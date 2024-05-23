@@ -2,6 +2,7 @@
 /node_modules
 /test/init/storage
 /test/file-pool/storage
+/test/storage/test-path
 /storage
 .eslintcache
 .DS_Store

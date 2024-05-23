@@ -1,12 +1,9 @@
 import { concat, remove, sort } from 'ramda'
 import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, createItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
-import { TagPool, deleteTag } from './TagPool'
 import { maxId } from './ID'
 import { FileID } from './File'
 import Immutable from 'immutable'
-import { Memo } from 'new-vait'
-import { PoolOperation } from './Pool'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -40,7 +37,6 @@ function createDateIndex(prop: keyof ItemDateFields<Date>, map: ItemPool['map'],
   }, id_list)
 }
 
-// 先采用最暴力的排序方式
 function constructItemIndex(map: ItemPool['map']): ItemPool['index'] {
   const id_list: ItemID[] = []
   for (const item_id of map.keys()) {
@@ -57,13 +53,9 @@ function constructItemIndex(map: ItemPool['map']): ItemPool['index'] {
 }
 
 export function createItemPool(items: Item[]): ItemPool {
-  let map: ItemPool['map'] = Immutable.Map()
-
-  for (let i = 0; i < items.length; ++i) {
-    const item = items[i]
-    map = map.set(item.id, item)
-  }
-
+  const map = items.reduce((map, item) => {
+    return map.set(item.id, item)
+  }, Immutable.Map<ItemID, Item>())
   return {
     latest_id: itemID(maxId(items)),
     index: constructItemIndex(map),
@@ -117,10 +109,6 @@ export function addItem(old_pool: ItemPool, create_form: CreateItemForm): readon
       }
     }
   ]
-}
-
-export function ItemOperation(p: ItemPool) {
-  return PoolOperation<ItemPool, Item>(p)
 }
 
 export function deleteItem(oldpool: ItemPool, will_del_id: number): ItemPool {
