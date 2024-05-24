@@ -26,13 +26,14 @@ function toLowerTagname(n: string) {
 function findNameTable(names: TagNameTable, find_name: string) {
   return names.get(toLowerTagname(find_name))
 }
+
 function updateNameTable(names: TagNameTable, set_name: string, tag_id: TagID) {
   return names.set(toLowerTagname(set_name), tag_id)
 }
+
 function deleteNameTable(names: TagNameTable, name: string) {
   return names.delete(toLowerTagname(name))
 }
-// function
 
 function constructTagIndex(tag_map: TagPool['map']) {
   const tags = [...tag_map.values()]

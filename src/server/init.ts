@@ -12,6 +12,9 @@ import { Signal } from 'new-vait'
 import { ItemStorage, TagStorage } from './repo/storage'
 import { PoolStorage } from './repo/storage/init/v2'
 
+import pkg from '../../package.json' assert { type: 'json' }
+import { createConfig } from './my-config'
+
 export function initConfig(obj: Record<string, unknown>) {
   return checkConfigObject(obj)
 }
@@ -84,4 +87,11 @@ export async function createRepositoryInstance({
     // tag_pool: createTagPool(tags),
     // item_pool: createItemPool(items)
   })
+}
+
+export async function programStart() {
+  console.log(`MyRepository ver${pkg.version}`)
+  const config = createConfig()
+  const repo = await initRepositoryInstance(config)
+  return { repo, config }
 }

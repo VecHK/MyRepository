@@ -4,32 +4,16 @@ import serveHandler from 'serve-handler'
 import readline from 'readline'
 
 import { Config } from './config'
-import { RepositoryInstance, initRepositoryInstance } from './init'
+import { RepositoryInstance, programStart } from './init'
 import { Wait } from 'vait'
-import { fileURLToPath } from 'url'
 import { createApi } from './api'
 import pkg from '../../package.json' assert { type: 'json' }
 import diagnosis from './diagnosis'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+serverStart()
 
-serverStart(createConfig())
-
-function createConfig(): Config {
-  const storage_path = path.join(__dirname, '../../storage')
-  return {
-    http_api_port: 44998,
-    internal_fileserver_http_port: 44999,
-    storage_path,
-    filepool_path: path.join(storage_path, './files')
-  }
-}
-
-async function serverStart(config: Config) {
-  console.log(`MyRepository ver${pkg.version}`)
-
-  const repo = await initRepositoryInstance(config)
+async function serverStart() {
+  const { repo, config } = await programStart()
 
   diagnosis(repo, async () => {
     console.log('server api creating')
