@@ -86,7 +86,8 @@ export default {
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   modulePathIgnorePatterns: [
     "<rootDir>/test/init/storage/",
-    "<rootDir>/test/file-pool/storage/"
+    "<rootDir>/test/file-pool/storage/",
+    "<rootDir>/test/storage/test_path/"
   ]
 
   // Activates notifications for test results

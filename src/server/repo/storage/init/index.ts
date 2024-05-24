@@ -3,7 +3,7 @@ import { IOsavePart, fullPartPath } from './io'
 // -------- 每次添加新的版本后，都得修改这块地方 --------
 // -------- 隔壁 update.ts 的 updater 也要更新   --------
 export type VERSIONS = 1 | 2
-export const CURRENT_VERSION: VERSIONS = 2
+export const LATEST_VERSION: VERSIONS = 2
 import V2 from './v2-type'
 import { LoadPart, PoolStorage, SavePart } from './v2'
 import { update } from './update'
@@ -36,22 +36,26 @@ async function initStorage(storage_path: string) {
 
 export type StorageInstance = Awaited<ReturnType<typeof StorageInst>>
 
+export function getStorageVersion(storage_path: string) {
+  return readJSON<VERSIONS>(fullPartPath(storage_path, 'version'))
+}
+
 export async function StorageInst(storage_path: string) {
   const status = await checkDirectory(storage_path)
 
   const partPath = curry(fullPartPath)(storage_path)
 
   if (status === 'dir') {
-    const storage_version = await readJSON<VERSIONS>(partPath('version'))
-    if (storage_version > CURRENT_VERSION) {
-      throw new Error(`存储库版本(v${storage_version})超过程序所支持的版本(v${CURRENT_VERSION})`)
-    } else if (storage_version < CURRENT_VERSION) {
-      console.warn('将开始更新存储库')
-      await update(storage_path, storage_version)
-      return StorageInst(storage_path)
+    const current_version = await getStorageVersion(storage_path)
+    if (current_version > LATEST_VERSION) {
+      throw new Error(
+        `存储库版本(v${current_version})超过程序所支持的版本(v${LATEST_VERSION})。🧎对不起，老版本的程序是无法读取更高版本的存储库的`
+      )
+    } else if (current_version < LATEST_VERSION) {
+      throw new Error(`当前的存储库版本(v${current_version})较低，请更新至(v${LATEST_VERSION})。运行"npm run update-storage"以更新存储库`)
     } else {
       return Object.freeze({
-        storage_version,
+        storage_version: current_version,
         storage_path,
         partPath,
         loadPart: LoadPart(storage_path),

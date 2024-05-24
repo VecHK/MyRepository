@@ -1,4 +1,4 @@
-import myConfirm from '../utils/my-confirm'
+import { myConfirm } from '../utils/cli'
 import { RepositoryInstance } from '../init'
 import { deleteFiles } from '../repo/file-pool'
 import { programStart } from '../init'

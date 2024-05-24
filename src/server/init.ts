@@ -27,23 +27,6 @@ export type RepositoryInstance = {
   tagpool_op: ReturnType<typeof TagStorage>
 }
 
-export function saveStorageSync(repo: RepositoryInstance) {
-  // repo.storage.storage_path
-  throw new Error('saveStorageSync is deprecated')
-  // const { storage, itempool_op: [getItemPool], tagpool_op: [getTagPool] } = repo
-  // const items: Item[] = []
-  // for (const [id, item] of getItemPool().map) {
-  //   items.push(item)
-  // }
-  // fs.writeFileSync(storage.partPath('items'), JSON.stringify(items))
-
-  // const tags: Tag[] = []
-  // for (const [id, tag] of getTagPool().map) {
-  //   tags.push(tag)
-  // }
-  // fs.writeFileSync(storage.partPath('tags'), JSON.stringify(tags))
-}
-
 export async function initRepositoryInstance(config: Config): Promise<RepositoryInstance> {
   const storage = await StorageInst(config.storage_path)
 

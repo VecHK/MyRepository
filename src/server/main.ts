@@ -1,13 +1,10 @@
-import path from 'path'
 import http from 'http'
 import serveHandler from 'serve-handler'
-import readline from 'readline'
 
 import { Config } from './config'
 import { RepositoryInstance, programStart } from './init'
 import { Wait } from 'vait'
 import { createApi } from './api'
-import pkg from '../../package.json' assert { type: 'json' }
 import diagnosis from './diagnosis'
 
 serverStart()

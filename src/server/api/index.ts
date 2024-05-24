@@ -11,7 +11,7 @@ import { bodyParser } from '@koa/bodyparser'
 import proxy from 'koa-proxies'
 
 import { Config } from '../config'
-import { RepositoryInstance, saveStorageSync } from '../init'
+import { RepositoryInstance } from '../init'
 
 import { FilterRule, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
 import { CreateItemForm, ItemID } from '../core/Item'
@@ -260,8 +260,7 @@ function ActionRoute(
     ...TagActionRoute(repo),
 
     save(): { message: 'done' } {
-      saveStorageSync(repo)
-      return { message: 'done' }
+      throw new Error('save action is deprecated.')
     },
 
     imageDimession(file_id: FileID) {

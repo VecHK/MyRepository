@@ -6,7 +6,8 @@ import { parseRawItems } from '../../../core/Item'
 import { splitPoint } from '../../file-pool'
 import { checkDirectory, prepareWriteDirectory } from '../../../utils/directory'
 import { VERSIONS } from '.'
-import { Serial } from 'new-vait'
+import { Serial, timeout } from 'new-vait'
+import { processingStatus } from '../../../utils/cli'
 
 const __POOL_SPLIT_INTERVAL__ = 4000
 
@@ -148,21 +149,32 @@ export function PoolStorage(storage_path: string) {
    } as const
 }
 
-export async function updater(storage_path: string) {
-  const raw_items = await LoadPart(storage_path)('items')
-  const items = parseRawItems(raw_items)
-  const tags = await LoadPart(storage_path)('tags')
+export async function updater(
+  storage_path: string
+) {
+  await processingStatus(async ({ updateStatus, done }) => {
+    updateStatus('读取items.json')
+    const raw_items = await LoadPart(storage_path)('items')
+    const items = parseRawItems(raw_items)
 
-  const {
-    createItemFile,
-    createTagFile
-  } = PoolStorage(storage_path)
+    updateStatus('读取tags.json')
+    const tags = await LoadPart(storage_path)('tags')
 
-  for (const item of items) {
-    await createItemFile(item)
-  }
+    const {
+      createItemFile,
+      createTagFile,
+    } = PoolStorage(storage_path)
 
-  for (const tag of tags) {
-    await createTagFile(tag)
-  }
+    for (const item of items) {
+      await createItemFile(item)
+      updateStatus(`📄 已创建 item(id=${item.id}) 文件`)
+    }
+
+    for (const tag of tags) {
+      await createTagFile(tag)
+      updateStatus(`🏷️  已创建 tag(id=${tag.id}) 文件`)
+    }
+
+    done('')
+  })
 }

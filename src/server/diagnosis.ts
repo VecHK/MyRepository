@@ -1,6 +1,6 @@
 import { RepositoryInstance } from './init'
 import { deleteFiles } from './repo/file-pool'
-import myConfirm from './utils/my-confirm'
+import { myConfirm } from './utils/cli'
 
 export default async function diagnosis(
   repo: RepositoryInstance,

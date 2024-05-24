@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "clean": "node --loader ts-node/esm ./src/server/commands/clean.ts",
+    "update-storage": "node --loader ts-node/esm ./src/server/commands/update-storage.ts",
     "start-server": "node --loader ts-node/esm ./src/server/main.ts",
     "dev-server": "node --loader ts-node/esm --watch ./src/server/main.ts",
     "start-front": "react-scripts start",
