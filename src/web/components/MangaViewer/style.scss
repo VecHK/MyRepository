@@ -1,0 +1,19 @@
+
+.manga-viewer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 100vw;
+  z-index: 10000000;
+  background: wheat;
+
+  overflow: scroll;
+  direction: rtl;
+  writing-mode: vertical-rl;
+  overflow-y: hidden;
+}
+
+.manga-page {
+  height: 100vh;
+}
