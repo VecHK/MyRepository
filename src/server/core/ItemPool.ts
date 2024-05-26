@@ -294,7 +294,7 @@ function iterateCond<T>(desc: boolean, list: T[], idx: number) {
   }
 }
 
-function select<T>(
+export function select<T>(
   list: T[],
   direct: -1 | 1,
   start: number,
@@ -363,7 +363,7 @@ function sortRule(rules: FilterRule[]) {
   }, rules)
 }
 
-function ItemFilterCond(rules: FilterRule[]): (item: Item) => boolean {
+export function ItemFilterCond(rules: FilterRule[]): (item: Item) => boolean {
   return (item) => {
     for (const rule of sortRule(rules)) {
       const check_result = predicate(rule, item)

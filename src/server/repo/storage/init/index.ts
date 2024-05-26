@@ -1,3 +1,4 @@
+import path from 'path'
 import { IOsavePart, fullPartPath } from './io'
 
 // -------- 每次添加新的版本后，都得修改这块地方 --------
@@ -11,7 +12,7 @@ export type LatestVersion = V2
 // ------------------------------------------------------
 
 import { mkdir } from 'fs/promises'
-import { checkDirectory } from '../../../utils/directory'
+import { checkDirectory, prepareWriteDirectory } from '../../../utils/directory'
 import { readJSON } from '../../../utils/json'
 import { curry, partial } from 'ramda'
 
@@ -26,9 +27,9 @@ async function initStorage(storage_path: string) {
 
     case 'dir':
       await Promise.all([
-        IOsavePart(storage_path, 'version', 1),
-        IOsavePart(storage_path, 'items', []),
-        IOsavePart(storage_path, 'tags', [])
+        prepareWriteDirectory( path.join(storage_path, 'item-pool') ),
+        prepareWriteDirectory( path.join(storage_path, 'tag-pool') ),
+        IOsavePart(storage_path, 'version', 2),
       ])
       break
   }

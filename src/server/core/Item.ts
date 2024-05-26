@@ -43,10 +43,17 @@ type JSONDateString = string
 export type Item_raw =
   Omit<Item, keyof ItemDateFields<Date>> & ItemDateFields<JSONDateString>
 
+export function toRawItem(item: Item): Item_raw {
+  return {
+    ...item,
+    release_date: item.release_date ? item.release_date.toJSON() : null,
+    create_date: item.create_date.toJSON(),
+    update_date: item.update_date.toJSON(),
+  }
+}
+
 export function parseRawItems(raw_items: Item_raw[]): Item[] {
   return raw_items.map(raw_item => {
-    const create_date = new Date(raw_item.create_date)
-
     const release_date = (
       raw_item.release_date === null
     ) ? null : new Date(raw_item.release_date)
@@ -54,8 +61,8 @@ export function parseRawItems(raw_items: Item_raw[]): Item[] {
     return {
       ...raw_item,
       release_date,
-      create_date,
-      update_date: create_date,
+      create_date: new Date(raw_item.create_date),
+      update_date: new Date(raw_item.update_date),
     }
   })
 }

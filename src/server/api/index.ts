@@ -13,8 +13,8 @@ import proxy from 'koa-proxies'
 import { Config } from '../config'
 import { RepositoryInstance } from '../init'
 
-import { FilterRule, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, updateItem } from '../core/ItemPool'
-import { CreateItemForm, ItemID } from '../core/Item'
+import { FilterRule, ItemFilterCond, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, select, updateItem } from '../core/ItemPool'
+import { CreateItemForm, Item, ItemID, Item_raw } from '../core/Item'
 import { FileID, constructFileID } from '../core/File'
 import { CreateTagForm, Tag, TagID } from '../core/Tag'
 import { UpdateTagForm, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
@@ -22,6 +22,7 @@ import { generateThumb, getImageDimession } from '../utils/generate-image'
 import { initDirectory, prepareWriteDirectory } from '../utils/directory'
 import { deleteTagAndUpdateItemsOperate } from '../core/Pool'
 import { JSONObject } from 'server/utils/json'
+import ID from 'server/core/ID'
 
 function backFail(
   ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>,
@@ -220,6 +221,18 @@ function ItemActionRoute(
     deleteItem(will_del_id: ItemID): { message: 'done' } {
       itemOp(deleteItem, will_del_id)
       return { message: 'done' }
+    },
+
+    filterList({ ids, filter_rules }: {
+      ids: ItemID[],
+      filter_rules: FilterRule[]
+    }) {
+      return (
+        idList2Items(itemPool(), ids).filter(
+          ( filter_rules.length === 0 ) ?
+          (() => true) : ItemFilterCond(filter_rules)
+        )
+      )
     },
 
     listing(payload: {

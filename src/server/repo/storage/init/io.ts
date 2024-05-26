@@ -13,13 +13,13 @@ export function fullPartPath<P extends string>(storage_path: string, part: P): s
   return path.join(storage_path, `${part}.json`)
 }
 
-export function IOloadPart<P extends string, JSONDataType extends any>(storage_path: string, part: P) {
+export function IOloadPart<P extends string, JSONDataType>(storage_path: string, part: P) {
   return readJSON<JSONDataType>(
     fullPartPath<P>(storage_path, part)
   )
 }
 
-export function IOsavePart<P extends string, JSONDataType extends any>(
+export function IOsavePart<P extends string, JSONDataType>(
   storage_path: string,
   part: P,
   json_object: JSONDataType
