@@ -42,6 +42,9 @@ function AppInner() {
         background-repeat: repeat;
       }
       .build-description {
+        position: fixed;
+        top: 0;
+        right: 0;
         color: grey;
         font-size: 12px;
         padding: 0;

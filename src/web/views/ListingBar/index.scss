@@ -1,0 +1,43 @@
+.listing-bar {
+  display: flex;
+}
+
+.float-modal-select-item:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.float-modal-select-item {
+}
+
+.filter-rule-modal {
+
+}
+.filter-rule-modal-head {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.float-modal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 220px;
+  background: white;
+  box-shadow: 0px 7px 7px 0px rgba(0,0,0,0.05), 0px 10px 15px -3px rgba(0,0,0,0.05);
+  border: grey 1px solid;
+  border-radius: 5px;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.listing-option {
+  user-select: none;
+  cursor: pointer;
+  background-color: rgb(248, 251, 254);
+  border: 1px #96c2d2 solid;
+  border-radius: 100px;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 24px;
+  margin-right: 8px;
+}

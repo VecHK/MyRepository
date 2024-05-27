@@ -4,10 +4,9 @@ import { FilterRule, FilterRuleLogic, ItemIndexedField } from '../server/core/It
 import { fileId2Url, requestAction } from './api/action'
 import moment from 'moment'
 import SideBarView from './views/sidebar'
-import { TagID } from 'server/core/Tag'
-import { useFilterRules } from './views/FilterManager'
 import Masonry from './views/ViewItemsByMasonry'
 import { remove } from 'ramda'
+import { useListing } from './views/ListingBar'
 
 function ViewItemsByTable({ items, selected, onSelect }: ItemsViewProps) {
   return (
@@ -161,29 +160,11 @@ function useMyFetching<Data>(
 }
 
 export default function Frame() {
-  // const [items, setItems] = useState<Item[]>([])
   const [selected_ids, setSelectedID] = useState<ItemID[]>([])
-  // const [filter_rules, setFilterRules] = useState<FilterRule[]>([])
-  const [sort_by, setSortBy] = useState<ItemIndexedField>('id')
-  const [desc, setDesc] = useState(false)
+
   const [limit] = useState(50)
 
-  const [filter_rules, filter_node] = useFilterRules({
-    init_client_filter_rules: [{
-      id: 1,
-      type: 'title',
-      init_value: {
-        logic: 'and', input: '', invert: false
-      }
-    }, {
-      id: 2,
-      type: 'has_tag',
-      init_value: {
-        logic: 'and', input: [], invert: false
-      }
-    }],
-    init_value_table: {},
-  })
+  const [ { sort_by, desc, filter_rules }, listing_bar ] = useListing()
 
   useEffect(() => {
     setSelectedID([])
@@ -304,7 +285,7 @@ export default function Frame() {
         items={items}
         selected={selected_ids}
         onSelect={setSelectedID}
-        topbar={filter_node}
+        topbar={listing_bar}
         onDrag={() => {}}
         onDragIn={() => {}}
         onOpen={() => {}}

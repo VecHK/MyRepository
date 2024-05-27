@@ -89,7 +89,7 @@ const PhotoBox = forwardRef<() => Dimension, Props>((props, ref) => {
         ref(getDim)
       }
     } else {
-      console.warn('NONE :(', el_ref.current)
+      // console.warn('NONE :(', el_ref.current)
     }
   }, [ref])
 
@@ -111,7 +111,7 @@ const PhotoBox = forwardRef<() => Dimension, Props>((props, ref) => {
       if (typeof ref === 'function') { ref(getDim) }
     }
   } else {
-    console.warn('NONE :(', el_ref.current)
+    // console.warn('NONE :(', el_ref.current)
   }
 
   return (
