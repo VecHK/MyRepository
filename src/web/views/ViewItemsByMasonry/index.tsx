@@ -97,7 +97,7 @@ function computeGalleryWidthWithAutoColumnCount(
 const getLayoutConfigure = (): WaterfallLayoutConfigure => {
   const viewport_width = getViewportWidth()
   return compactLayout({
-    column_count: 4,
+    column_count: Math.floor(window.innerWidth / 200),
     column_gutter: 8,
     vote_event_vertial_gutter: 27,
     gallery_width: viewport_width - 300,
