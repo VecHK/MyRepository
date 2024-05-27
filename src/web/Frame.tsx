@@ -1,5 +1,5 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Item, ItemID, itemID } from '../server/core/Item'
+import { ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Item, ItemID, Item_raw, itemID, parseRawItems } from '../server/core/Item'
 import { FilterRule, FilterRuleLogic, ItemIndexedField } from '../server/core/ItemPool'
 import { fileId2Url, requestAction } from './api/action'
 import moment from 'moment'
@@ -7,6 +7,8 @@ import SideBarView from './views/sidebar'
 import Masonry from './views/ViewItemsByMasonry'
 import { remove } from 'ramda'
 import { useListing } from './views/ListingBar'
+import { AppContext } from './App'
+import Loading from './components/Loading'
 
 function ViewItemsByTable({ items, selected, onSelect }: ItemsViewProps) {
   return (
@@ -71,8 +73,10 @@ type ItemsViewProps = {
   onViewParent(): void
 }
 
-function MainView({ items, ...remain_props }: ItemsViewProps & {
+function MainView({ items, loading, error, ...remain_props }: ItemsViewProps & {
   topbar: ReactNode
+  loading: boolean
+  error: any
 }) {
   const [show_type, setShowType] = useState<'table' | 'masonry' | 'grid' | 'coverflow'>('masonry')
 
@@ -94,7 +98,11 @@ function MainView({ items, ...remain_props }: ItemsViewProps & {
           client_filter_rules={client_filter_rules}
         /> */}
       </section>
-      <div className="items-view">{items_view_node}</div>
+      {
+        loading ? <Loading /> : (
+          <div className="items-view">{items_view_node}</div>
+        )
+      }
     </main>
   )
 }
@@ -160,6 +168,8 @@ function useMyFetching<Data>(
 }
 
 export default function Frame() {
+  const { scroll_to_bottom_signal } = useContext(AppContext)
+
   const [selected_ids, setSelectedID] = useState<ItemID[]>([])
 
   const [limit] = useState(50)
@@ -170,36 +180,75 @@ export default function Frame() {
     setSelectedID([])
   }, [filter_rules, sort_by, desc, limit])
 
-  const [after_id, setAfterID] = useState<undefined | ItemID>(undefined)
-
-  const items_ref = useRef<Item[]>([])
-
-  useEffect(() => {
-    items_ref.current = []
-  }, [])
+  const [listing_mode, setListingMode] = useState<'refresh' | 'append'>('refresh')
 
   const error = false
-  const is_loading = false
+  const [is_loading, setLoading] = useState(true)
   const [items, setItems] = useState<Item[]>([])
-  const refreshItems = useCallback((type: 'refresh' | 'append') => {
+  const loading_ref = useRef(false)
+  const refreshItems = useCallback(() => {
+    if (loading_ref.current) {
+      return
+    }
+
+    loading_ref.current = true
+    setLoading(true)
     return requestAction('listing', {
-      after_id,
+      after_id: undefined,
       filter_rules,
       sort_by,
       desc,
       limit,
-    }).then((new_items) => {
-      if (type === 'refresh') {
-        items_ref.current = new_items
-      } else {
-        items_ref.current = [...items_ref.current, ...new_items]
-      }
-      setItems(items_ref.current)
+    }).then((new_raw_items) => {
+      setItems(() => {
+        setLoading(false)
+        loading_ref.current = false
+        return parseRawItems(new_raw_items as any as Item_raw[])
+      })
     })
-  }, [after_id, desc, filter_rules, limit, sort_by])
+  }, [desc, filter_rules, limit, sort_by])
+
+  const [is_appending, setAppending] = useState(false)
 
   useEffect(() => {
-    refreshItems('refresh')
+    const id = Date.now()
+    const handler = () => {
+      // console.log('bottom append', id, loading_ref.current)
+      if (loading_ref.current) {
+        return
+      }
+
+      loading_ref.current = true
+      setAppending(true)
+
+      const last_item = items[items.length - 1]
+
+      requestAction('listing', {
+        after_id: last_item.id,
+        filter_rules,
+        sort_by,
+        desc,
+        limit,
+      }).then((new_raw_items) => {
+        setItems((prev_items) => {
+          setTimeout(() => {
+            loading_ref.current = false
+            setAppending(false)
+          }, 300)
+          const items = parseRawItems(new_raw_items as any as Item_raw[])
+          return [...prev_items, ...items]
+        })
+      })
+    }
+    scroll_to_bottom_signal.receive(handler)
+    return () => {
+      console.log('cancelReceive', id)
+      scroll_to_bottom_signal.cancelReceive(handler)
+    }
+  }, [desc, filter_rules, items, limit, scroll_to_bottom_signal, sort_by])
+
+  useEffect(() => {
+    refreshItems()
   }, [refreshItems])
 
   const selected_items = useMemo(() => {
@@ -208,21 +257,8 @@ export default function Frame() {
     })
   }, [items, selected_ids])
 
-  if (is_loading) {
-    return <>loading</>
-  } else if (error) {
-    return <>failure!</>
-  }
-
   return (
     <div className="frame" style={{ display: 'flex' }}>
-      {/* <button onClick={() => {
-        if (!is_loading && !error && (items.length !== 0)) {
-          const last_item = items[items.length - 1]
-          console.log('set')
-          setAfterID(last_item.id)
-        }
-      }}>next</button> */}
       <SideBarView
         selected_items={selected_items}
         onItemsUpdate={(new_items) => {
@@ -269,8 +305,6 @@ export default function Frame() {
           }
           setItems(items => {
             setSelectedID(() => [])
-            setAfterID(undefined)
-            items_ref.current = []
             return items.filter(item => !selected_ids.includes(item.id))
           })
         }}
@@ -286,6 +320,8 @@ export default function Frame() {
         selected={selected_ids}
         onSelect={setSelectedID}
         topbar={listing_bar}
+        loading={is_loading}
+        error={error}
         onDrag={() => {}}
         onDragIn={() => {}}
         onOpen={() => {}}
