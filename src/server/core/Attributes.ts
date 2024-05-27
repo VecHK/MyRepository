@@ -1,7 +1,8 @@
 import { DefineValidator, v_isObject } from '../utils/my-validator'
 
 export type AttributeFieldName = string
-export type AttributeValueType = string | number | boolean
+type AttributeValueBaseType = string | number | boolean
+export type AttributeValueType = AttributeValueBaseType | Array<AttributeValueBaseType>
 export type Attributes = Record<AttributeFieldName, AttributeValueType>
 
 const isAttributeBaseValue = (attr_value: AttributeValueType) => (

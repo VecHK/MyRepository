@@ -23,20 +23,3 @@ export function requestAction<N extends ActionName>(
 export function fileId2Url(f_id: FileID): string {
   return baseURL`files/${f_id}`
 }
-
-export async function listingItem(
-  sort_by: 'index',
-  after_id: number | undefined,
-  limit: number,
-  desc: boolean = false,
-  filter_rules: FilterRule[],
-) {
-  return request<Item[]>({
-    method: 'POST',
-    url: 'action',
-    data: {
-      action: 'listing',
-      payload: { sort_by, after_id, limit, desc, filter_rules },
-    },
-  })
-}

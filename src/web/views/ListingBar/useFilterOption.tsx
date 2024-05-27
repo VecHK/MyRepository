@@ -18,7 +18,9 @@ type DefineClientFilterRule<Type, Input> = {
 
 export type ClientFilterRule =
   DefineClientFilterRule<'has_tag', TagOption[]> |
-  DefineClientFilterRule<'title', string>
+  DefineClientFilterRule<'title', string> |
+  DefineClientFilterRule<'top_parent', null> |
+  DefineClientFilterRule<'empty_release_date', null>
 
 type ClientFilterRuleType = ClientFilterRule['type']
 type ClientFilterValues = ClientFilterValue<keyof ClientFilterValueMap>
@@ -78,6 +80,24 @@ export default function useFilterOption(init: {
         invert: false,
       }
     }) },
+    { text: '顶级项目', init: () => ({
+      id: Date.now(),
+      type: 'top_parent',
+      init_value: {
+        input: null,
+        logic: 'and',
+        invert: false,
+      }
+    }) },
+    { text: '发布时间为空', init: () => ({
+      id: Date.now(),
+      type: 'empty_release_date',
+      init_value: {
+        input: null,
+        logic: 'and',
+        invert: false,
+      }
+    }) },
   ]
 
   const server_filter_rules = useMemo<FilterRule[]>(() => {
@@ -103,7 +123,24 @@ export default function useFilterOption(init: {
           return val.input.map(tag => {
             return { ...val, name: 'has_tag', input: tag.value }
           })
+        } else if (rule.type === 'top_parent') {
+          const val = getValue(value_table, rule)
+          if (val.invert) {
+            return [
+              { ...val, name: 'is_child_item', invert: false }
+            ]
+          } else {
+            return [
+              { ...val, name: 'has_multi_original' },
+              { ...val, name: 'is_child_item', invert: true }
+            ]
+          }
+        } else if (rule.type === 'empty_release_date') {
+          const val = getValue(value_table, rule)
+          return [{ ...val, name: 'empty_release_date' }]
         } else {
+          const r = rule as any
+          throw new Error(`unknown rule.type: ${r.type}`)
           return []
         }
       })
@@ -182,6 +219,46 @@ export default function useFilterOption(init: {
                     updateValue(rule, { input })
                   }}
                 />
+              }
+            />
+          )}
+        />
+      ))
+    } else if (rule.type === 'top_parent') {
+      const { invert, input: selected_options } = getValue(value_table, rule)
+      return optionNode(rule.id, (
+        <ListingOptionModal
+          children={`${invert ? '不是' : '是'}顶级项目`}
+          renderModal={(setModal) => (
+            <FilterRuleModal
+              invert={invert}
+              onClickRemove={() => {
+                removeClientRule(rule.id)
+                setModal({ open: false })
+              }}
+              onInvertChange={invert => updateValue(rule, { invert })}
+              node={
+                <>顶级项目</>
+              }
+            />
+          )}
+        />
+      ))
+    } else if (rule.type === 'empty_release_date') {
+      const { invert, input: selected_options } = getValue(value_table, rule)
+      return optionNode(rule.id, (
+        <ListingOptionModal
+          children={`发布时间${invert ? '不为空' : '为空'}`}
+          renderModal={(setModal) => (
+            <FilterRuleModal
+              invert={invert}
+              onClickRemove={() => {
+                removeClientRule(rule.id)
+                setModal({ open: false })
+              }}
+              onInvertChange={invert => updateValue(rule, { invert })}
+              node={
+                <>发布时间为空</>
               }
             />
           )}

@@ -4,6 +4,7 @@ import { TagID } from './Tag'
 import { maxId } from './ID'
 import { FileID } from './File'
 import Immutable from 'immutable'
+import { AttributeFieldName, AttributeValueType } from './Attributes'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -30,7 +31,7 @@ function createDateIndex(prop: keyof ItemDateFields<Date>, map: ItemPool['map'],
       (a_date === null) ||
       (b_date === null)
     ) {
-      return 1
+      return -1
     } else {
       return (a_date < b_date) ? -1 : 1
     }
@@ -238,7 +239,7 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
     let new_release_date = found_item.release_date
     const need_update_release_date = Reflect.has(updateForm, 'release_date')
     if (need_update_release_date) {
-      if (updateForm.release_date) {
+      if (typeof updateForm.release_date === 'string') {
         new_release_date = new Date(updateForm.release_date)
       }
     }
@@ -341,7 +342,18 @@ export type FilterRule =
   DefineFilterRule<'is_child_item', null> |
   DefineFilterRule<'has_tag', TagID> |
   DefineFilterRule<'empty_tag', null> |
-  DefineFilterRule<'empty_release_date', null>
+  DefineFilterRule<'empty_release_date', null> |
+  DefineFilterRule<'attribute_equal', {
+    name: AttributeFieldName,
+    value: AttributeValueType
+  }>
+
+type FilterRules = Array<FilterRule>
+type FilterRuleGroups = Array<{
+  logic: FilterRuleLogic
+  invert: boolean
+  rules: FilterRules
+}>
 
 function predicate(rule: FilterRule, item: Item): boolean {
   if (rule.name === 'has_tag') {
@@ -356,6 +368,26 @@ function predicate(rule: FilterRule, item: Item): boolean {
     return item.tags.length === 0
   } else if (rule.name === 'empty_release_date') {
     return item.release_date === null
+  } else if (rule.name === 'attribute_equal') {
+    const { name, value: input_value } = rule.input
+    if (!Reflect.has(item.attributes, name)) {
+      return false
+    } else {
+      const attr_value = item.attributes[name]
+      if (Array.isArray(input_value)) {
+        if (!Array.isArray(attr_value)) {
+          return false
+        } else if (attr_value.length !== input_value.length) {
+          return false
+        } else {
+          return attr_value.every((_, idx) => {
+            return attr_value[idx] === input_value[idx]
+          })
+        }
+      } else {
+        return input_value === attr_value
+      }
+    }
   } else {
     throw new Error(`unknown filter rule: ${JSON.stringify(rule)}`)
   }
@@ -363,7 +395,7 @@ function predicate(rule: FilterRule, item: Item): boolean {
 
 function sortRule(rules: FilterRule[]) {
   return sort((a, b) => {
-    return a.logic === 'or' ? -1 : 1
+    return a.logic === 'and' ? -1 : 1
   }, rules)
 }
 
@@ -412,7 +444,6 @@ export function listingItem(
     )
   } else {
     const after_id_idx = id_list.indexOf(after_id)
-    // console.log('after_id_idx', after_id_idx)
     if (after_id_idx === -1) {
       throw new Error(`missing after_id: ${after_id}`)
     } else {
