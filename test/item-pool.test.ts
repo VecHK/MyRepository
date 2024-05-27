@@ -353,20 +353,29 @@ test('deleteItem', () => {
 test('create parent item', () => {
   let pool = createItemPool([])
 
+  const release_datestring = (new Date).toJSON()
+
   const childs = range(0, 4).map(()=> {
-    const [child, new_pool] = addItem(pool, createForm({ title: 'child' }))
+    const [child, new_pool] = addItem(pool, createForm({
+      title: 'child',
+      release_date: release_datestring,
+    }))
     pool = new_pool
     return child
   })
 
   const [parent, new_pool] = addItem(pool, createForm({
     title: 'parent',
-    original: childs.map((item) => item.id)
+    original: childs.map((item) => item.id),
+    release_date: release_datestring,
   }))
   pool = new_pool
 
   for (const child of childs) {
-    expect(getItem(pool, child.id).parent).toBe(parent.id)
+    const { release_date } = getItem(pool, child.id)
+    assert(release_date !== null)
+    assert(release_date instanceof Date)
+    expect(release_date.toJSON()).toBe(release_datestring)
   }
 })
 
@@ -437,6 +446,42 @@ test('prevent spec non-exists child', () => {
       original: [nonexists.id, child.id]
     })
   }).toThrow()
+})
+
+test('update item\'s release_date', () => {
+  const [getPool, op] = ItemOperation(
+    createItemPool(parseRawItems(generateRawItems()))
+  )
+
+  const date_string = (new Date()).toJSON()
+  const new_date_string = (new Date('1997/09/09')).toJSON()
+
+  const new_item = op(addItem, createForm({
+    release_date: date_string,
+  }))
+
+  expect(new_item.release_date?.toJSON()).toBe(date_string)
+  expect(
+    getItem(getPool(), new_item.id).release_date?.toJSON()
+  ).toBe(date_string)
+
+  {
+    op(updateItem, new_item.id, {
+      title: 'hello!'
+    })
+    expect(new_item.release_date?.toJSON()).toBe(date_string)
+    expect(
+      getItem(getPool(), new_item.id).release_date?.toJSON()
+    ).toBe(date_string)
+  }
+  {
+    op(updateItem, new_item.id, {
+      release_date: new_date_string
+    })
+    expect(
+      getItem(getPool(), new_item.id).release_date?.toJSON()
+    ).toBe(new_date_string)
+  }
 })
 
 test('update item\'s original', () => {

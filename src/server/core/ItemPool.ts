@@ -235,8 +235,13 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
 
     const update_form_tags = updateForm.tags
 
-    const release_date_string = updateForm.release_date
-    const need_update_release_date = release_date_string !== 'string'
+    let new_release_date = found_item.release_date
+    const need_update_release_date = Reflect.has(updateForm, 'release_date')
+    if (need_update_release_date) {
+      if (updateForm.release_date) {
+        new_release_date = new Date(updateForm.release_date)
+      }
+    }
 
     const new_map = pool.map.set(found_item.id, {
       ...found_item,
@@ -247,8 +252,7 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
       tags: Array.isArray(update_form_tags) ?
         unique(update_form_tags) : found_item.tags,
 
-      release_date: release_date_string ?
-        new Date(release_date_string) : null,
+      release_date: new_release_date
     })
 
     return {
