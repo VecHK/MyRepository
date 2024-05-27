@@ -1,7 +1,7 @@
 import { myConfirm } from '../utils/cli'
-import { RepositoryInstance } from '../init'
+import { RepositoryInstance } from '../init/repository'
 import { deleteFiles } from '../repo/file-pool'
-import { programStart } from '../init'
+import programStart from '../init/program-start'
 
 const { repo } = await programStart()
 cleanUnreferencedFilesCommand(repo)

@@ -1,6 +1,6 @@
 import request, { baseURL } from 'web/utils/request'
 import { FilterRule } from 'server/core/ItemPool'
-import { CreateItemForm, Item } from 'server/core/Item'
+import { Item } from 'server/core/Item'
 import { ActionName, ActionPayload, ActionRouteTable } from 'server/api'
 import { FileID } from 'server/core/File'
 import { ImageDimession } from 'server/utils/generate-image'

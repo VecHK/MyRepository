@@ -1,27 +1,25 @@
+import { loadProperty, v_isNoneEmptyString } from '../utils/my-validator'
 import ID, { Id } from './ID'
+import { Attributes, v_isAttributes } from './Attributes'
 
 export type TagID = ID<number, 'TagID'>
 export const tagID = Id<number, 'TagID'>()
 
-type AttributeField = string
-type AttributeValueType = string | number
-export type TagAttributes = Record<AttributeField, AttributeValueType>
-
-export type CreateTagForm = Omit<Tag, 'id'>
+export type TagForm = Omit<Tag, 'id'>
 
 export type Tag = {
   id: TagID
   name: string
-  attributes: TagAttributes
+  attributes: Attributes
 }
 
 export function constructTag(
   id: number,
-  form: CreateTagForm
+  create_form: TagForm
 ): Tag {
   return {
     id: tagID(id),
-    name: form.name,
-    attributes: form.attributes,
+    name: loadProperty(create_form, 'name', v_isNoneEmptyString),
+    attributes: loadProperty(create_form, 'attributes', v_isAttributes),
   }
 }

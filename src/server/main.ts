@@ -1,9 +1,10 @@
 import http from 'http'
 import serveHandler from 'serve-handler'
+import { Wait } from 'vait'
 
 import { Config } from './config'
-import { RepositoryInstance, programStart } from './init'
-import { Wait } from 'vait'
+import { RepositoryInstance } from './init/repository'
+import programStart from './init/program-start'
 import { createApi } from './api'
 import diagnosis from './diagnosis'
 

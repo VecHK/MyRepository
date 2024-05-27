@@ -1,9 +1,7 @@
 import Immutable from 'immutable'
 import { sort, toLower } from 'ramda'
 import ID, { Id, maxId } from './ID'
-import { CreateTagForm, Tag, TagAttributes, TagID, constructTag, tagID } from './Tag'
-import { Memo } from 'new-vait'
-import { PoolOperation } from './Pool'
+import { TagForm, Tag, TagID, constructTag, tagID } from './Tag'
 
 type LowercaseTagName = ID<string, 'LowercaseTagName'>
 
@@ -98,11 +96,9 @@ export function getTagIdByName(pool: TagPool, tag_name: string) {
 }
 
 export function newTag(
-  pool: TagPool, { name, attributes }: CreateTagForm
+  pool: TagPool, { name, attributes }: TagForm
 ): readonly [Tag, TagPool] {
-  if (name.length === 0) {
-    throw new Error('can\'t set empty tagname')
-  } else if (tagnameHasDuplicate(pool, name)) {
+  if (tagnameHasDuplicate(pool, name)) {
     throw new Error(`duplicate tag name: ${name}`)
   } else {
     const new_id = (pool.latest_id + 1) as TagID
@@ -123,7 +119,7 @@ export function deleteTag(pool: TagPool, id: TagID): TagPool {
   }
 }
 
-export type UpdateTagForm = Partial<CreateTagForm>
+export type UpdateTagForm = Partial<TagForm>
 
 export function updateTag(
   pool: TagPool,

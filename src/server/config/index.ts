@@ -21,7 +21,7 @@ export function checkConfigObject(json_obj: any): Config {
 
 function ReadObjectProperty<
   P extends string,
-  V extends unknown,
+  V,
   O extends Record<P, V>
 >(obj: O) {
   function string(prop: P): string {

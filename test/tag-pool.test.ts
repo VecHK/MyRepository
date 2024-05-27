@@ -1,8 +1,8 @@
 import assert from 'assert'
 import { parseRawItems } from '../src/server/core/Item'
 import { addItem, createItemPool, getItem, updateItem } from '../src/server/core/ItemPool'
-import { TagID, tagID } from '../src/server/core/Tag'
-import { TagPool, createTagPool, deleteTag, getTag, newTag, searchTag, updateTag } from '../src/server/core/TagPool'
+import { tagID } from '../src/server/core/Tag'
+import { createTagPool, deleteTag, getTag, newTag, searchTag, updateTag } from '../src/server/core/TagPool'
 import { createForm, generateRawItems, ItemOperation, TagOperation } from './common'
 
 test('newTag', () => {

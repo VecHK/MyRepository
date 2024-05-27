@@ -11,18 +11,16 @@ import { bodyParser } from '@koa/bodyparser'
 import proxy from 'koa-proxies'
 
 import { Config } from '../config'
-import { RepositoryInstance } from '../init'
+import { RepositoryInstance } from '../init/repository'
 
 import { FilterRule, ItemFilterCond, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, select, updateItem } from '../core/ItemPool'
-import { CreateItemForm, Item, ItemID, Item_raw } from '../core/Item'
+import { ItemJSONForm, Item, ItemID, Item_raw } from '../core/Item'
 import { FileID, constructFileID } from '../core/File'
-import { CreateTagForm, Tag, TagID } from '../core/Tag'
+import { TagForm, Tag, TagID } from '../core/Tag'
 import { UpdateTagForm, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
 import { generateThumb, getImageDimession } from '../utils/generate-image'
-import { initDirectory, prepareWriteDirectory } from '../utils/directory'
+import { prepareWriteDirectory } from '../utils/directory'
 import { deleteTagAndUpdateItemsOperate } from '../core/Pool'
-import { JSONObject } from 'server/utils/json'
-import ID from 'server/core/ID'
 
 function backFail(
   ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>,
@@ -153,7 +151,7 @@ function TagActionRoute(
   }: RepositoryInstance
 ) {
   return {
-    newTag(form: CreateTagForm): Tag {
+    newTag(form: TagForm): Tag {
       return tagOp(newTag, form)
     },
 
@@ -204,7 +202,7 @@ function ItemActionRoute(
   }: RepositoryInstance
 ) {
   return {
-    addItem(payload: CreateItemForm) {
+    addItem(payload: ItemJSONForm) {
       return itemOp(addItem, payload)
     },
 
@@ -255,7 +253,7 @@ function ItemActionRoute(
       )
     },
 
-    updateItem(payload: { id: ItemID, data: Partial<CreateItemForm> }) {
+    updateItem(payload: { id: ItemID, data: Partial<ItemJSONForm> }) {
       itemOp(updateItem, payload.id, payload.data)
       return { message: 'done' }
     },

@@ -6,8 +6,8 @@ import { FileID, constructFileID, parseFileID } from '../../src/server/core/File
 
 import cfg from './config'
 import { timeout } from 'vait'
-import { ItemOperation, addItem, createItemPool } from '../../src/server/core/ItemPool'
-import { createForm } from '../common'
+import { addItem, createItemPool } from '../../src/server/core/ItemPool'
+import { ItemOperation, createForm } from '../common'
 import path from 'path'
 import pathExists from '../../src/server/utils/directory'
 import { Item } from '../../src/server/core/Item'

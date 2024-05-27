@@ -1,5 +1,5 @@
 import { concat, remove, sort } from 'ramda'
-import { CreateItemForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, createItem, itemID, parseRawItems, unique } from './Item'
+import { ItemJSONForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, constructNewItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
 import { maxId } from './ID'
 import { FileID } from './File'
@@ -79,12 +79,12 @@ function moveToLatest(ids: ItemID[], item_id: ItemID) {
   ]
 }
 
-export function addItem(old_pool: ItemPool, create_form: CreateItemForm): readonly [
+export function addItem(old_pool: ItemPool, create_form: ItemJSONForm): readonly [
   Item,
   ItemPool
 ] {
   const new_id = (old_pool.latest_id + 1) as ItemID
-  const new_item = createItem(new_id, create_form)
+  const new_item = constructNewItem(new_id, create_form)
 
   if (Array.isArray(new_item.original)) {
     old_pool = setItemsParent(old_pool, new_item.original, new_item.id)
@@ -214,7 +214,7 @@ function setItem(pool: ItemPool, id: ItemID, item: Item) {
   return { ...pool, map: pool.map.set(id, item) }
 }
 
-export function updateItem(pool: ItemPool, id: number, updateForm: Partial<CreateItemForm>): ItemPool {
+export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJSONForm>): ItemPool {
   if (updateForm.parent !== undefined) {
     throw new Error('updateItem: 不能更改parent字段，修改子item的引用请修改父item中的original')
   }

@@ -7,10 +7,22 @@ import { PoolStorage } from './init/v2'
 
 let has_failure: Error | null = null
 
+const ConsolePrinter = (slient: boolean, printer: (...args: any[]) => void) => (
+  (...args: any[]) => {
+    if (!slient) {
+      printer(...args)
+    }
+  }
+)
+
 export function ItemStorage(
   item_pool: ItemPool,
-  storage_path: string
+  storage_path: string,
+  slient: boolean
 ) {
+  const log = ConsolePrinter(slient, console.log)
+  const error = ConsolePrinter(slient, console.error)
+
   const { createItemFile, updateItemFile, deleteItemFile } = PoolStorage(storage_path)
   const [itemPool, tagOp, setItemPool] = PoolOperation<ItemPool, Item>(
     item_pool,
@@ -24,30 +36,30 @@ export function ItemStorage(
       for (const item_id of diff.adds.keys()) {
         createItemFile(getItem(itemPool(), item_id))
           .then(() => {
-            console.log(`item(id=${item_id}) added.`)
+            log(`item(id=${item_id}) added.`)
           })
           .catch(err => {
-            console.error('createItemFile failure!', err)
+            error('createItemFile failure!', err)
             has_failure = err
           })
       }
       for (const item_id of diff.dels.keys()) {
         deleteItemFile(item_id)
           .then(() => {
-            console.log(`item(id=${item_id}) deleted.`)
+            log(`item(id=${item_id}) deleted.`)
           })
           .catch(err => {
-            console.error('deleteItemFile failure!', err)
+            error('deleteItemFile failure!', err)
             has_failure = err
           })
       }
       for (const item_id of diff.changes.keys()) {
         updateItemFile(getItem(itemPool(), item_id))
           .then(() => {
-            console.log(`item(id=${item_id}) updated.`)
+            log(`item(id=${item_id}) updated.`)
           })
           .catch(err => {
-            console.error('updateItemFile failure!', err)
+            error('updateItemFile failure!', err)
             has_failure = err
           })
       }
@@ -58,8 +70,12 @@ export function ItemStorage(
 
 export function TagStorage(
   init_tag_pool: TagPool,
-  storage_path: string
+  storage_path: string,
+  slient: boolean
 ) {
+  const log = ConsolePrinter(slient, console.log)
+  const error = ConsolePrinter(slient, console.error)
+
   const { createTagFile, updateTagFile, deleteTagFile } = PoolStorage(storage_path)
   const [tagPool, tagOp, setTagPool] = PoolOperation<TagPool, Tag>(
     init_tag_pool,
@@ -73,30 +89,30 @@ export function TagStorage(
       for (const tag_id of diff.adds.keys()) {
         createTagFile(getTag(tagPool(), tag_id))
           .then(() => {
-            console.log(`tag(id=${tag_id}) added.`)
+            log(`tag(id=${tag_id}) added.`)
           })
           .catch(err => {
-            console.error('createTagFile failure', err)
+            error('createTagFile failure', err)
             has_failure = err
           })
       }
       for (const tag_id of diff.dels.keys()) {
         deleteTagFile(tag_id)
           .then(() => {
-            console.log(`tag(id=${tag_id}) deleted.`)
+            log(`tag(id=${tag_id}) deleted.`)
           })
           .catch(err => {
-            console.error('deleteTagFile failure', err)
+            error('deleteTagFile failure', err)
             has_failure = err
           })
       }
       for (const tag_id of diff.changes.keys()) {
         updateTagFile(getTag(tagPool(), tag_id))
           .then(() => {
-            console.log(`tag(id=${tag_id}) updated.`)
+            log(`tag(id=${tag_id}) updated.`)
           })
           .catch(err => {
-            console.error('updateTagFile failure', err)
+            error('updateTagFile failure', err)
             has_failure = err
           })
       }

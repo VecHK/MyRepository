@@ -16,7 +16,6 @@ export default async function pathExists(filepath: string) {
   }
 }
 
-
 export async function checkDirectory(
   dir_path: string
 ): Promise<'notfound' | 'dir' | 'is_not_dir'> {

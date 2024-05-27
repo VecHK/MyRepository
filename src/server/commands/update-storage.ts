@@ -1,7 +1,4 @@
 import { myConfirm } from '../utils/cli'
-import { RepositoryInstance } from '../init'
-import { deleteFiles } from '../repo/file-pool'
-import { programStart } from '../init'
 import { LATEST_VERSION, VERSIONS, getStorageVersion } from '../repo/storage/init'
 import { Config } from '../config'
 import { createConfig } from '../my-config'

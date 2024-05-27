@@ -12,7 +12,7 @@ export type LatestVersion = V2
 // ------------------------------------------------------
 
 import { mkdir } from 'fs/promises'
-import { checkDirectory, prepareWriteDirectory } from '../../../utils/directory'
+import { checkDirectory, initDirectory, prepareWriteDirectory } from '../../../utils/directory'
 import { readJSON } from '../../../utils/json'
 import { curry, partial } from 'ramda'
 
@@ -27,8 +27,8 @@ async function initStorage(storage_path: string) {
 
     case 'dir':
       await Promise.all([
-        prepareWriteDirectory( path.join(storage_path, 'item-pool') ),
-        prepareWriteDirectory( path.join(storage_path, 'tag-pool') ),
+        initDirectory( path.join(storage_path, 'item-pool') ),
+        initDirectory( path.join(storage_path, 'tag-pool') ),
         IOsavePart(storage_path, 'version', 2),
       ])
       break

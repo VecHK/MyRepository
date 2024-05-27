@@ -15,7 +15,7 @@ export const v_isObject = DefineValidator('object', (v: Record<string, unknown>)
   return v && !Array.isArray(v) && (typeof v === 'object')
 })
 
-export const v_isNoeEmptyString = DefineValidator<string>('null', (v) => v.length !== 0)
+export const v_isNoneEmptyString = DefineValidator<string>('null', (v) => v.length !== 0)
 
 export const v_isNull = DefineValidator<null>('null', (v) => v === null)
 
@@ -36,13 +36,20 @@ export const v_isNoneZero = DefineValidator('none-zero', [
   })
 ])
 
-export const v_isDateString = DefineValidator('DateString', (v: string) => {
-  return moment(new Date(v)).isValid()
-})
+export const v_isDateString = DefineValidator('DateString', [
+  v_isNoneEmptyString,
+  DefineValidator('', (v: string) => {
+    return moment(new Date(v)).isValid()
+  })
+])
 
 type ValidateFunc<V> = (v: V) => boolean | void
 
 export type ValidatorInstance<V> = Readonly<[string, ValidateFunc<V>]>
+
+function validatorInstance<V>(typedesc: string, validateFunc: ValidateFunc<V>) {
+  return [typedesc, validateFunc] as const
+}
 
 export function DefineValidator<V>(
   typedesc: string,
@@ -50,15 +57,9 @@ export function DefineValidator<V>(
 ): ValidatorInstance<V> {
   if (Array.isArray(validate_func)) {
     const [, composed_validate_func] = ComposeValidator(...validate_func)
-    return [
-      typedesc,
-      composed_validate_func
-    ]
+    return validatorInstance(typedesc, composed_validate_func)
   } else {
-    return [
-      typedesc,
-      validate_func,
-    ]
+    return validatorInstance(typedesc, validate_func)
   }
 }
 
@@ -125,14 +126,14 @@ export function loadProperty<
 >(
   object: O,
   prop: P,
-  validator: ValidatorInstance<V>
+  validate_inst: ValidatorInstance<V>
 ): V {
   const value: V = object[prop]
 
   if (!Reflect.has(object, prop)) {
     throw new Error(`属性[${String(prop)}]不存在`)
   } else {
-    const result = runValidator<V>(validator, value)
+    const result = runValidator<V>(validate_inst, value)
     if (result === undefined) {
       return value
     } else {
@@ -140,20 +141,3 @@ export function loadProperty<
     }
   }
 }
-
-// // const v_isNumber = DefineValidator<number>('number', v => {
-// //   return typeof v === 'number'
-// // })
-
-// // const v_isNoneZero = DefineValidator<number>('非0的数字', v => {
-// //   return v !== 0
-// // })
-
-// // const v_ItemID = DefineValidator<ItemID>('itemID', [v_isNumber, v_isNoneZero])
-
-// // const b = ComposeValidator(v_isNumber, v_isNoneZero)
-
-// // const _FAILURE_VALUE_ = Symbol()
-
-
-// // ComposeValidator([numChecker, NoneZeroChecker])

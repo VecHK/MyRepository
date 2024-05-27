@@ -1,10 +1,10 @@
-import { CreateItemForm, Item, Item_raw, itemID } from '../src/server/core/Item'
+import { ItemJSONForm, Item, Item_raw, itemID } from '../src/server/core/Item'
 import { ItemPool } from '../src/server/core/ItemPool'
 import { PoolOperation } from '../src/server/core/Pool'
 import { Tag } from '../src/server/core/Tag'
 import { TagPool } from '../src/server/core/TagPool'
 
-export function createForm(append: Partial<CreateItemForm> = {}): CreateItemForm {
+export function createForm(append: Partial<ItemJSONForm> = {}): ItemJSONForm {
   return {
     title: '',
     tags: [],

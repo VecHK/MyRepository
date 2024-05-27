@@ -2,9 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import assert from 'assert'
 import request from 'supertest'
-import { Wait } from 'vait'
 import config_object from './config'
-import { initConfig, initRepositoryInstance } from '../../src/server/init'
+import { initRepositoryInstance } from '../../src/server/init/repository'
+import { initConfig } from '../../src/server/init/config'
 import { createApi } from '../../src/server/api'
 
 beforeEach(() => {

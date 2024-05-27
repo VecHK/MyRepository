@@ -1,5 +1,5 @@
-import { Item_raw } from 'server/core/Item'
-import { Tag } from 'server/core/Tag'
+import { Item_raw } from '../../../core/Item'
+import { Tag } from '../../../core/Tag'
 
 export type PartFields = keyof Storage
 type Storage = Readonly<{

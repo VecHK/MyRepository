@@ -1,4 +1,4 @@
-import { AnyValidator, DefineValidator, ValidatorInstance, loadProperty, runValidator, v_isAny, v_isNoneZero, v_isNull, v_isNumber, v_isString } from '../src/server/utils/my-validator'
+import { AnyValidator, ValidatorInstance, loadProperty, runValidator, v_isAny, v_isNoneZero, v_isNull, v_isNumber, v_isString } from '../src/server/utils/my-validator'
 import assert from 'assert'
 
 function runValidatorTest(

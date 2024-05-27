@@ -1,4 +1,4 @@
-import { RepositoryInstance } from './init'
+import { RepositoryInstance } from './init/repository'
 import { deleteFiles } from './repo/file-pool'
 import { myConfirm } from './utils/cli'
 
