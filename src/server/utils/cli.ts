@@ -23,10 +23,16 @@ export function myConfirm(
   })
 }
 
-export async function processingStatus<R, T extends (d: {
+export function processingStatus<R>(task: (d: {
   updateStatus(s: string): void
   done(s: string): void
-}) => R>(task: T): Promise<R> {
+}) => R): R
+export async function processingStatus<
+  R
+>(task: (d: {
+  updateStatus(s: string): void
+  done(s: string): void
+}) => Promise<R>): Promise<R> {
   function fillString(input: string): string {
     const { columns } = process.stdout
     const out: string[] = []
@@ -36,19 +42,19 @@ export async function processingStatus<R, T extends (d: {
     return out.join('')
   }
 
+  function updateStatus(string: string) {
+    process.stdout.clearLine(-1)
+    process.stdout.cursorTo(0)
+    process.stdout.write(`${fillString(string)}`)
+  }
+
+  function done(string: string) {
+    console.log(`\n${string}`)
+  }
+
   try {
-    return (
-      await task({
-        updateStatus(string: string) {
-          process.stdout.clearLine(-1)
-          process.stdout.cursorTo(0)
-          process.stdout.write(`${fillString(string)}`)
-        },
-        done(string: string) {
-          console.log(`\n${string}`)
-        },
-      })
-    )
+    const return_val = await task({ updateStatus, done })
+    return return_val
   } catch (err) {
     process.stdout.write('\n')
     throw err

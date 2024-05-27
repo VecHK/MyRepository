@@ -1,19 +1,18 @@
+import pkg from '../../package.json' assert { type: 'json' }
+
+import { processingStatus } from './utils/cli'
+
 import { Config, checkConfigObject } from './config'
-import { StorageInst, StorageInstance } from './repo/storage/init'
-import { ItemPool, addItem, createItemPool } from './core/ItemPool'
+import { createConfig } from './my-config'
+
 import { Item, Item_raw, parseRawItems } from './core/Item'
-import { TagPool, createTagPool } from './core/TagPool'
 import { Tag } from './core/Tag'
-import { Wait } from 'vait'
-import { initFilePool } from './repo/file-pool'
-import fs from 'fs'
-import { PoolOperation } from './core/Pool'
-import { Signal } from 'new-vait'
+import { createItemPool } from './core/ItemPool'
+import { createTagPool } from './core/TagPool'
+import { StorageInst, StorageInstance } from './repo/storage/init'
 import { ItemStorage, TagStorage } from './repo/storage'
 import { PoolStorage } from './repo/storage/init/v2'
-
-import pkg from '../../package.json' assert { type: 'json' }
-import { createConfig } from './my-config'
+import { initFilePool } from './repo/file-pool'
 
 export function initConfig(obj: Record<string, unknown>) {
   return checkConfigObject(obj)
@@ -30,16 +29,38 @@ export type RepositoryInstance = {
 export async function initRepositoryInstance(config: Config): Promise<RepositoryInstance> {
   const storage = await StorageInst(config.storage_path)
 
-  const { readAll } = PoolStorage(config.storage_path)
+  const { readAllIgnoreSequence } = PoolStorage(config.storage_path)
 
-  const tag_data_P = readAll<Tag>('tag')
-  const item_raw_data_P = readAll<Item_raw>('item')
+  const [ tag_data, item_raw_data ] = await processingStatus(async ({ updateStatus, done }) => {
+    let count_tag = 0
+    let count_item = 0
+
+    const refreshStatus = () => {
+      updateStatus(`loading data...(found ${count_tag} tags) (found ${count_item} items)`)
+    }
+
+    const tag_data_P = readAllIgnoreSequence<Tag>('tag', tag => {
+      count_tag += 1
+      refreshStatus()
+    })
+
+    const item_raw_data_P = readAllIgnoreSequence<Item_raw>('item', item_raw => {
+      count_item += 1
+      refreshStatus()
+    })
+
+    const res = [await tag_data_P, await item_raw_data_P] as const
+
+    done('')
+
+    return res
+  })
 
   return createRepositoryInstance({
     config,
     storage,
-    tags: await tag_data_P,
-    items: parseRawItems(await item_raw_data_P),
+    tags: tag_data,
+    items: parseRawItems(item_raw_data),
   })
 }
 
@@ -67,8 +88,6 @@ export async function createRepositoryInstance({
     file_pool: await initFilePool(config.filepool_path),
     tagpool_op,
     itempool_op,
-    // tag_pool: createTagPool(tags),
-    // item_pool: createItemPool(items)
   })
 }
 

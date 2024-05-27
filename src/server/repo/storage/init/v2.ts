@@ -2,11 +2,11 @@ import path from 'path'
 import fs from 'fs/promises'
 import Storage, { PartFields } from './v1-type'
 import { IOloadPart, IOsavePart } from './io'
-import { parseRawItems } from '../../../core/Item'
+import { Item_raw, parseRawItems } from '../../../core/Item'
 import { splitPoint } from '../../file-pool'
 import { checkDirectory, prepareWriteDirectory } from '../../../utils/directory'
 import { VERSIONS } from '.'
-import { Serial, timeout } from 'new-vait'
+import { Memo, Serial, timeout } from 'new-vait'
 import { processingStatus } from '../../../utils/cli'
 
 const __POOL_SPLIT_INTERVAL__ = 4000
@@ -60,27 +60,38 @@ export function PoolStorage(storage_path: string) {
     return jsonPath( poolPath(cat), id )
   }
 
-  async function readAll<Type>(cat: string) {
+  async function readAllIgnoreSequence<Type>(cat: string, itemLoadedCallback?: (item: Type) => void) {
     const list: Type[] = []
 
-    await processingWithError(async () => {
-      const basepath = path.join(poolPath(cat))
-      const splits = await fs.readdir(basepath)
+    const basepath = path.join(poolPath(cat))
+    const splits = await fs.readdir(basepath)
 
-      for (const split of splits) {
-        const split_path = path.join(basepath, split)
-        const status = await checkDirectory(path.join(split_path))
-        if (status === 'dir') {
-          const jsonfiles = await fs.readdir(split_path)
-          for (const jsonfilename of jsonfiles) {
-            if (jsonfilename.includes('.json')) {
-              const raw_json = await fs.readFile(path.join(split_path, jsonfilename), { encoding: 'utf-8' })
-              const data = JSON.parse(raw_json) as Type
-              list.push(data)
+    for (const split of splits) {
+      const split_path = path.join(basepath, split)
+      const status = await checkDirectory(path.join(split_path))
+      if (status === 'dir') {
+        const jsonfiles = await fs.readdir(split_path)
+        for (const jsonfilename of jsonfiles) {
+          if (jsonfilename.includes('.json')) {
+            const raw_json = await fs.readFile(path.join(split_path, jsonfilename), { encoding: 'utf-8' })
+            const data = JSON.parse(raw_json) as Type
+            list.push(data)
+            if (itemLoadedCallback) {
+              itemLoadedCallback(data)
             }
           }
         }
       }
+    }
+
+    return list
+  }
+
+  async function readAll<Type>(cat: string, itemLoadedCallback?: (item: Type) => void) {
+    let list: Type[] = []
+
+    await processingWithError(async () => {
+      list = await readAllIgnoreSequence(cat, itemLoadedCallback)
     })
 
     return list
@@ -145,6 +156,7 @@ export function PoolStorage(storage_path: string) {
     createTagFile: CreateFile('tag'),
     updateTagFile: UpdateFile('tag'),
     deleteTagFile: DeleteFile('tag'),
+    readAllIgnoreSequence,
     readAll,
    } as const
 }
