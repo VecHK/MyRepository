@@ -31,7 +31,11 @@ function createDateIndex(prop: keyof ItemDateFields<Date>, map: ItemPool['map'],
       (a_date === null) ||
       (b_date === null)
     ) {
-      return -1
+      if (a_date === null) {
+        return -1
+      } else {
+        return 1
+      }
     } else {
       return (a_date < b_date) ? -1 : 1
     }
@@ -273,11 +277,6 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
       }
     }
   }
-}
-
-function descIdx(len: number, idx: number) {
-  console.log(len, idx)
-  return (len - 1) - idx
 }
 
 export function idList2Items(pool: ItemPool, id_list: ItemID[]): Item[] {
