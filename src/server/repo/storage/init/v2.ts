@@ -60,6 +60,8 @@ export function PoolStorage(storage_path: string) {
     return jsonPath( poolPath(cat), id )
   }
 
+  const __READALL_CONCURRENT = 100
+
   async function readAllIgnoreSequence<Type>(cat: string, itemLoadedCallback?: (item: Type) => void) {
     const list: Type[] = []
 
@@ -71,15 +73,26 @@ export function PoolStorage(storage_path: string) {
       const status = await checkDirectory(path.join(split_path))
       if (status === 'dir') {
         const jsonfiles = await fs.readdir(split_path)
-        for (const jsonfilename of jsonfiles) {
-          if (jsonfilename.includes('.json')) {
-            const raw_json = await fs.readFile(path.join(split_path, jsonfilename), { encoding: 'utf-8' })
-            const data = JSON.parse(raw_json) as Type
-            list.push(data)
-            if (itemLoadedCallback) {
-              itemLoadedCallback(data)
-            }
-          }
+
+        for (let i = 0; i < jsonfiles.length; i += __READALL_CONCURRENT) {
+          const concurrent = (
+            jsonfiles.slice(i, i + __READALL_CONCURRENT).map(jsonfilename => {
+              return fs.readFile(
+                path.join(split_path, jsonfilename),
+                { encoding: 'utf-8' }
+              )
+            })
+          )
+          const loaded_json_list = await Promise.all(concurrent)
+          list.push(
+            ...loaded_json_list.map(raw_json => {
+              const data = JSON.parse(raw_json) as Type
+              if (itemLoadedCallback) {
+                itemLoadedCallback(data)
+              }
+              return data
+            })
+          )
         }
       }
     }
