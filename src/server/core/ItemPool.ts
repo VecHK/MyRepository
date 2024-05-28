@@ -5,6 +5,7 @@ import { maxId } from './ID'
 import { FileID } from './File'
 import Immutable from 'immutable'
 import { AttributeFieldName, AttributeValueType } from './Attributes'
+import { TagPool } from './TagPool'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -345,7 +346,9 @@ export type FilterRule =
   DefineFilterRule<'attribute_equal', {
     name: AttributeFieldName,
     value: AttributeValueType
-  }>
+  }> |
+  DefineFilterRule<'__tagname_contains', string> |
+  DefineFilterRule<'__custom_predicate', (item: Item) => boolean>
 
 type FilterRules = Array<FilterRule>
 export type FilterGroup = {
@@ -387,6 +390,8 @@ function rulePredicate(rule: FilterRule, item: Item): boolean {
         return input_value === attr_value
       }
     }
+  } else if (rule.name === '__custom_predicate') {
+    return rule.input(item)
   } else {
     throw new Error(`unknown filter rule: ${JSON.stringify(rule)}`)
   }
@@ -439,14 +444,14 @@ export function ItemFilterCond(filter_groups: FilterGroup[]): (item: Item) => bo
 }
 
 export function listingItemSimple(
-  pool: ItemPool,
+  item_pool: ItemPool,
   sort_by: keyof ItemPool['index'],
   after_id: ItemID | undefined,
   limit: number,
   desc: boolean = false,
   filter_rules: FilterRule[]
 ): ItemID[] {
-  return listingItemAdvanced(pool, sort_by, after_id, limit, desc, [{
+  return listingItemAdvanced(item_pool, sort_by, after_id, limit, desc, [{
     invert: false,
     logic: 'and',
     rules: filter_rules
@@ -454,14 +459,14 @@ export function listingItemSimple(
 }
 
 export function listingItemAdvanced(
-  pool: ItemPool,
+  item_pool: ItemPool,
   sort_by: keyof ItemPool['index'],
   after_id: ItemID | undefined,
   limit: number,
   desc: boolean = false,
   filter_groups: FilterGroup[]
 ): ItemID[] {
-  const id_list = pool.index[sort_by]
+  const id_list = item_pool.index[sort_by]
 
   const filterCond = (
     filter_groups.length === 0
@@ -475,7 +480,7 @@ export function listingItemAdvanced(
       desc ? -1 : 1,
       desc ? id_list.length - 1 : 0,
       limit,
-      (item_id) => filterCond(getItem(pool, item_id))
+      (item_id) => filterCond(getItem(item_pool, item_id))
     )
   } else {
     const after_id_idx = id_list.indexOf(after_id)
@@ -487,7 +492,7 @@ export function listingItemAdvanced(
         desc ? -1 : 1,
         desc ? (after_id_idx - 1) : (after_id_idx + 1),
         limit,
-        (item_id) => filterCond(getItem(pool, item_id))
+        (item_id) => filterCond(getItem(item_pool, item_id))
       )
     }
   }

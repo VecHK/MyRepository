@@ -260,6 +260,28 @@ function ItemActionRoute(
       limit: number
       filter_groups: FilterGroup[]
     }) {
+      const prepost_groups = payload.filter_groups.map<FilterGroup>(group => {
+        return {
+          ...group,
+          rules: group.rules.map(rule => {
+            if (rule.name === '__tagname_contains') {
+              return {
+                ...rule,
+                name: '__custom_predicate',
+                input: (rule.input.length === 0) ? (() => false) : (() => {
+                  const searched_tagids = searchTag(tagPool(), rule.input, 0)
+                  return (item: Item) => item.tags.some(
+                    tagid => searched_tagids.includes(tagid)
+                  )
+                })()
+              }
+            } else {
+              return rule
+            }
+          })
+        }
+      })
+
       return idList2Items(
         itemPool(),
         listingItemAdvanced(
@@ -268,7 +290,7 @@ function ItemActionRoute(
           payload.after_id,
           payload.limit,
           Boolean(payload.desc),
-          payload.filter_groups
+          prepost_groups
         )
       )
     },

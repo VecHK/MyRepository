@@ -20,7 +20,8 @@ export type ClientFilterRule =
   DefineClientFilterRule<'has_tag', TagOption[]> |
   DefineClientFilterRule<'title', string> |
   DefineClientFilterRule<'top_parent', null> |
-  DefineClientFilterRule<'empty_release_date', null>
+  DefineClientFilterRule<'empty_release_date', null> |
+  DefineClientFilterRule<'tagname_contains', string>
 
 type ClientFilterRuleType = ClientFilterRule['type']
 type ClientFilterValues = ClientFilterValue<keyof ClientFilterValueMap>
@@ -76,6 +77,15 @@ export default function useFilterOption(init: {
       type: 'has_tag',
       init_value: {
         input: [],
+        logic: 'and',
+        invert: false,
+      }
+    }) },
+    { text: '标签名匹配', init: () => ({
+      id: Date.now(),
+      type: 'tagname_contains',
+      init_value: {
+        input: '',
         logic: 'and',
         invert: false,
       }
@@ -149,6 +159,9 @@ export default function useFilterOption(init: {
         } else if (rule.type === 'empty_release_date') {
           const val = getValue(value_table, rule)
           return constructSimple([{ ...val, name: 'empty_release_date' }])
+        } else if (rule.type === 'tagname_contains') {
+          const val = getValue(value_table, rule)
+          return constructSimple([{ ...val, name: '__tagname_contains' }])
         } else {
           const r = rule as any
           throw new Error(`unknown rule.type: ${r.type}`)
@@ -290,6 +303,31 @@ export default function useFilterOption(init: {
               onInvertChange={invert => updateValue(rule, { invert })}
               node={
                 <>筛选未设置发布时间(release_date字段)的项目</>
+              }
+            />
+          )}
+        />
+      ))
+    } else if (rule.type === 'tagname_contains') {
+      const { input, invert } = getValue(value_table, rule)
+      return optionNode(rule.id, (
+        <ListingOptionModal
+          children={`标签名含有：${input}`}
+          renderModal={(setModal) => (
+            <FilterRuleModal
+              invert={invert}
+              onClickRemove={() => {
+                removeClientRule(rule.id)
+                setModal({ open: false })
+              }}
+              onInvertChange={invert => updateValue(rule, { invert })}
+              node={
+                <TitleFilterInput
+                  input={input}
+                  onInputChange={(input) => {
+                    updateValue(rule, { input })
+                  }}
+                />
               }
             />
           )}

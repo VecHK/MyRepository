@@ -168,12 +168,18 @@ export function idList2Tags(tag_pool: TagPool, id_list: TagID[]): Tag[] {
   })
 }
 
-export function searchTag(tag_pool: TagPool, find_tag_name: string) {
-  const limit = 30
+export function searchTag(
+  tag_pool: TagPool,
+  find_tag_name: string,
+  limit = 30
+) {
   let found = 0
   const found_ids: TagID[] = []
   for (const tag_name of tag_pool.name_table.keys()) {
-    if (found < limit) {
+    if (
+      (limit === 0) ||
+      (found < limit)
+    ) {
       if (tag_name.indexOf(toLowerTagname(find_tag_name)) !== -1) {
         found += 1
         const tag = getTagIdByName(tag_pool, tag_name) as TagID // 不可能是 undefined
