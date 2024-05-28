@@ -226,8 +226,9 @@ function MangaViewerFrame({ onCancel, detail }: Props) {
             style={{
               display: 'block',
               width: `${scaleHeight(window.innerHeight, image.width, image.height)}px`,
-              // width: `calc(${window.innerHeight}px * ${image.width / image.height})`,
-              height: `${window.innerHeight}px`
+              // 其实要写成 ${window.innerHeight}px 才是正确的
+              // 写成 100vh 是要对付 iPad 在 PWA 的显示问题，呵呵
+              height: '100vh',
             }}
           />
         )
