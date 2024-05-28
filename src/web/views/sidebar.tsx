@@ -20,7 +20,7 @@ export default function SideBarView(props: {
     <aside className="sidebar-view" style={{ display: 'flex', width: '300px', height: '100vh' }}>
       <div className='sidebar-float' style={{
           position: 'fixed',
-          bottom: 0,
+          top: 0,
           left: 0,
           height: '100vh',
           width: '300px',
@@ -167,8 +167,11 @@ function MultiSelectSideBar({ /*items, selected_id_list*/selected_items, onItems
         container: (base) => {
           return { ...base }
         },
+        dropdownIndicator: (base) => {
+          return { ...base, display: 'none' }
+        },
         control: (base) => {
-          return { ...base }
+          return { ...base, maxHeight: '500px', overflow: 'auto' }
         },
         multiValueRemove: base => {
           return { ...base, paddingLeft: '0', paddingRight: '3px' }
@@ -181,6 +184,9 @@ function MultiSelectSideBar({ /*items, selected_id_list*/selected_items, onItems
         },
         indicatorsContainer: (base) => {
           return { ...base, height: '100%' }
+        },
+        menuList: (base) => {
+          return { ...base, }
         },
         multiValue: (base, option) => {
           const data = option.data
