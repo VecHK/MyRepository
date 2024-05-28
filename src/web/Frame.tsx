@@ -9,6 +9,10 @@ import { remove } from 'ramda'
 import { useListing } from './views/ListingBar'
 import { AppContext } from './App'
 import Loading from './components/Loading'
+import { CoverClickEvent } from './components/PhotoBox'
+import PhotoDetail, { Detail } from './components/Detail'
+import { findListByProperty } from './utils/common'
+import MangaViewer, { MangaViewerDetail } from './components/MangaViewer'
 
 function ViewItemsByTable({ items, selected, onSelect }: ItemsViewProps) {
   return (
@@ -71,6 +75,7 @@ type ItemsViewProps = {
   onRightClick(): void
   onViewChildrens(): void
   onViewParent(): void
+  onClickCover(ev: CoverClickEvent, item_id: ItemID): void
 }
 
 function MainView({ items, loading, error, ...remain_props }: ItemsViewProps & {
@@ -114,11 +119,7 @@ function ViewItemsByMasonry(props: ItemsViewProps) {
       show_vote_button={true}
       list={props.items}
       selected_id_list={props.selected}
-      onClickCover={(info, item_id) => {
-        // item.
-        // props.onOpen
-        console.log('onClickCover')
-      }}
+      onClickCover={props.onClickCover}
       onClickVote={(item_id) => {
         const idx = props.selected.indexOf(itemID(item_id))
         if (idx !== -1) {
@@ -257,6 +258,9 @@ export default function Frame() {
     })
   }, [items, selected_ids])
 
+  const [image_detail, setImageDetail] = useState<Detail | null>(null)
+  const [manga_detail, setMangaViewer] = useState<MangaViewerDetail | null>(null)
+
   return (
     <div className="frame" style={{ display: 'flex' }}>
       <SideBarView
@@ -328,6 +332,61 @@ export default function Frame() {
         onRightClick={() => {}}
         onViewChildrens={() => {}}
         onViewParent={() => {}}
+        onClickCover={(
+          { from, thumbBlobUrl },
+          item_id,
+        ) => {
+          const idx = findListByProperty(items, 'id', item_id)
+          console.log('click', idx)
+          if (idx !== -1) {
+            const item = items[idx]
+            if (Array.isArray(item.original)) {
+              // const items = item.original
+              const allow_tags = ['type/artistcg', 'type/doujinshi','type/manga'].map(tag => {
+                return requestAction('getTagIfNoexistsWillCreateIt', tag)
+              })
+              Promise.all(allow_tags).then(allow_tags => {
+                for (const tag of allow_tags) {
+                  console.log(item.tags.includes(tag.id), tag)
+                  if (item.tags.includes(tag.id)) {
+                    setMangaViewer({
+                      direction: 'rtl',
+                      item_id: item.id,
+                    })
+                    return
+                  }
+                }
+              })
+            } else if (!Array.isArray(item.original) && item.original) {
+              const res = requestAction('imageDimession', item.original).then(dim => {
+                if (dim.height && dim.width) {
+                  setImageDetail({
+                    from: from,
+                    thumb: thumbBlobUrl,
+                    src: fileId2Url((item.original || 0) as any),
+                    height: dim.height,
+                    width: dim.width
+                  })
+                } else {
+                  alert('获取图片长宽失败')
+                }
+              })
+            }
+          }
+        }}
+      />
+      <PhotoDetail
+        detail={image_detail}
+        onCancel={() => {
+          setImageDetail(null)
+        }}
+      />
+
+      <MangaViewer
+        detail={manga_detail}
+        onCancel={() => {
+          setMangaViewer(null)
+        }}
       />
     </div>
   )

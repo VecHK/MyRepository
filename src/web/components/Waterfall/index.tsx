@@ -26,7 +26,7 @@ const Empty: FunctionComponent = memo(() => (
     paddingTop: '30px',
     width: '100%',
     color: 'rgba(0, 0, 0, 0.4)',
-  }}>暂无投稿作品</div>
+  }}>暂无项目</div>
 ))
 
 export type WaterfallLayoutConfigure = {
