@@ -1,7 +1,7 @@
 import React, { ReactNode, RefObject, forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import './index.scss'
 import { ItemIndexedField } from 'server/core/ItemPool'
-import useFilterOption, { ClientFilterRule, ClientFilterValueTable } from './useFilterOption';
+import useFilterOption, { ClientFilterRule, ClientFilterValueTable } from './useFilterOption'
 import { Signal } from 'new-vait'
 
 type ListingOptionProps = {

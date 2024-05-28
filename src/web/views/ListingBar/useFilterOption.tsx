@@ -80,7 +80,7 @@ export default function useFilterOption(init: {
         invert: false,
       }
     }) },
-    { text: '顶级项目', init: () => ({
+    { text: '是最上层项目', init: () => ({
       id: Date.now(),
       type: 'top_parent',
       init_value: {
@@ -202,7 +202,7 @@ export default function useFilterOption(init: {
       const { invert, input: selected_options } = getValue(value_table, rule)
       return optionNode(rule.id, (
         <ListingOptionModal
-          children={`🏷️ 标签：${selected_options.map(tag => tag.label).join('、')}`}
+          children={`🏷️ ${invert ? '不' : '包'}含标签：${selected_options.map(tag => tag.label).join('、')}`}
           renderModal={(setModal) => (
             <FilterRuleModal
               invert={invert}
@@ -228,7 +228,7 @@ export default function useFilterOption(init: {
       const { invert, input: selected_options } = getValue(value_table, rule)
       return optionNode(rule.id, (
         <ListingOptionModal
-          children={`${invert ? '不是' : '是'}顶级项目`}
+          children={`${invert ? '不是' : '是'}最上层项目`}
           renderModal={(setModal) => (
             <FilterRuleModal
               invert={invert}
@@ -238,14 +238,14 @@ export default function useFilterOption(init: {
               }}
               onInvertChange={invert => updateValue(rule, { invert })}
               node={
-                <>顶级项目</>
+                <>筛选出“既有子项目，又没有父项目”的项目</>
               }
             />
           )}
         />
       ))
     } else if (rule.type === 'empty_release_date') {
-      const { invert, input: selected_options } = getValue(value_table, rule)
+      const { invert } = getValue(value_table, rule)
       return optionNode(rule.id, (
         <ListingOptionModal
           children={`发布时间${invert ? '不为空' : '为空'}`}
@@ -258,7 +258,7 @@ export default function useFilterOption(init: {
               }}
               onInvertChange={invert => updateValue(rule, { invert })}
               node={
-                <>发布时间为空</>
+                <>筛选未设置发布时间(release_date字段)的项目</>
               }
             />
           )}
