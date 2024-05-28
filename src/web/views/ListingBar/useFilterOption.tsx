@@ -1,5 +1,5 @@
 import { Tag, TagID } from '../../../server/core/Tag'
-import { FilterRule, FilterRuleLogic } from '../../../server/core/ItemPool'
+import { FilterGroup, FilterRule, FilterRuleLogic } from '../../../server/core/ItemPool'
 import { ReactNode, useCallback, useMemo, useState } from 'react'
 import { TagOption } from '../sidebar'
 import { ListingOptionModal, OptionNode, optionNode } from '.'
@@ -100,53 +100,84 @@ export default function useFilterOption(init: {
     }) },
   ]
 
-  const server_filter_rules = useMemo<FilterRule[]>(() => {
+  const constructSimple = useCallback((rules: FilterRule[]) => {
+    return { type: 'simple', rules } as const
+  }, [])
+  const constructGroup = useCallback((rules: FilterRule[]) => {
+    return { type: 'group', rules } as const
+  }, [])
+  const client_filter_rules_middle = useMemo(() => {
     return client_filter_rules
-      .map<FilterRule[]>(rule => {
+      .map<{
+        type: 'simple' | 'group',
+        rules: FilterRule[]
+      }>(rule => {
         // console.log('rule', rule)
         if (rule.type === 'title') {
           const val = getValue(value_table, rule)
           if (val.input.length === 0) {
-            return []
+            return constructSimple([])
           } else {
-            return [ {
+            return constructSimple([ {
               name: 'title',
               ...val,
               // input: val,
               // invert: false,
               // logic: 'and',
               use_regexp: false
-            } ]
+            } ])
           }
         } else if (rule.type === 'has_tag') {
           const val = getValue(value_table, rule)
-          return val.input.map(tag => {
-            return { ...val, name: 'has_tag', input: tag.value }
-          })
+          return constructSimple(
+            val.input.map(tag => {
+              return { ...val, name: 'has_tag', input: tag.value }
+            })
+          )
         } else if (rule.type === 'top_parent') {
           const val = getValue(value_table, rule)
           if (val.invert) {
-            return [
+            return constructSimple([
               { ...val, name: 'is_child_item', invert: false }
-            ]
+            ])
           } else {
-            return [
+            return constructSimple([
               { ...val, name: 'has_multi_original' },
               { ...val, name: 'is_child_item', invert: true }
-            ]
+            ])
           }
         } else if (rule.type === 'empty_release_date') {
           const val = getValue(value_table, rule)
-          return [{ ...val, name: 'empty_release_date' }]
+          return constructSimple([{ ...val, name: 'empty_release_date' }])
         } else {
           const r = rule as any
           throw new Error(`unknown rule.type: ${r.type}`)
-          return []
+          return constructSimple([])
         }
       })
       .flat()
     // return []
-  }, [client_filter_rules, value_table])
+  }, [client_filter_rules, constructSimple, value_table])
+
+  const server_filter_groups = useMemo<FilterGroup[]>(() => {
+    const simepls = client_filter_rules_middle.filter(({ type }) => type === 'simple')
+    const groups = client_filter_rules_middle.filter(({ type }) => type === 'group')
+
+    return [
+      {
+        invert: false,
+        logic: 'and',
+        rules: simepls.map(({ rules }) => rules).flat()
+      },
+      ...groups.map<FilterGroup>(({ rules }) => {
+        return {
+          invert: false,
+          logic: 'and',
+          rules
+        }
+      })
+    ]
+  }, [client_filter_rules_middle])
 
   function updateValue<
     T extends ClientFilterRuleType,
@@ -292,7 +323,7 @@ export default function useFilterOption(init: {
         >➕添加筛选</ListingOptionModal>
       )
     ),
-    server_filter_rules,
+    server_filter_groups,
     client_filter_rules,
     value_table,
   }

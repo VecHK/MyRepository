@@ -256,7 +256,7 @@ export function useListing() {
 
   const {
     add_filter_node,
-    server_filter_rules,
+    server_filter_groups,
     filter_option_nodes,
     value_table,
     client_filter_rules,
@@ -288,5 +288,5 @@ export function useListing() {
     />
   )
 
-  return [{ sort_by, desc, filter_rules: server_filter_rules } , listing_bar] as const
+  return [{ sort_by, desc, filter_groups: server_filter_groups } , listing_bar] as const
 }

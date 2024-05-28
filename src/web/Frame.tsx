@@ -175,11 +175,11 @@ export default function Frame() {
 
   const [limit] = useState(50)
 
-  const [ { sort_by, desc, filter_rules }, listing_bar ] = useListing()
+  const [ { sort_by, desc, filter_groups }, listing_bar ] = useListing()
 
   useEffect(() => {
     setSelectedID([])
-  }, [filter_rules, sort_by, desc, limit])
+  }, [filter_groups, sort_by, desc, limit])
 
   const [listing_mode, setListingMode] = useState<'refresh' | 'append'>('refresh')
 
@@ -194,9 +194,9 @@ export default function Frame() {
 
     loading_ref.current = true
     setLoading(true)
-    return requestAction('listing', {
+    return requestAction('listingItemAdvanced', {
       after_id: undefined,
-      filter_rules,
+      filter_groups,
       sort_by,
       desc,
       limit,
@@ -207,7 +207,7 @@ export default function Frame() {
         return parseRawItems(new_raw_items as any as Item_raw[])
       })
     })
-  }, [desc, filter_rules, limit, sort_by])
+  }, [desc, filter_groups, limit, sort_by])
 
   const [is_appending, setAppending] = useState(false)
 
@@ -224,9 +224,9 @@ export default function Frame() {
 
       const last_item = items[items.length - 1]
 
-      requestAction('listing', {
+      requestAction('listingItemAdvanced', {
         after_id: last_item.id,
-        filter_rules,
+        filter_groups,
         sort_by,
         desc,
         limit,
@@ -246,7 +246,7 @@ export default function Frame() {
       console.log('cancelReceive', id)
       scroll_to_bottom_signal.cancelReceive(handler)
     }
-  }, [desc, filter_rules, items, limit, scroll_to_bottom_signal, sort_by])
+  }, [desc, filter_groups, items, limit, scroll_to_bottom_signal, sort_by])
 
   useEffect(() => {
     refreshItems()
@@ -279,7 +279,7 @@ export default function Frame() {
 
             const filtered_items = await requestAction('filterList', {
               ids: will_update_ids,
-              filter_rules
+              filter_groups,
             })
             const filtered_item_ids = filtered_items.map(i => i.id)
 

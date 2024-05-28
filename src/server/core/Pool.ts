@@ -1,7 +1,7 @@
 import { Memo, Signal } from 'new-vait'
 import { Tag, TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
-import { ItemPool, getItem, listingItem, updateItem } from './ItemPool'
+import { ItemPool, getItem, listingItemSimple, updateItem } from './ItemPool'
 import { Item, ItemID } from './Item'
 import Immutable from 'immutable'
 
@@ -90,7 +90,7 @@ export function deleteTagAndUpdateItems(
   item_pool: ItemPool,
   will_remove_tag_id: TagID
 ): Readonly<[TagPool, ItemPool]> {
-  const list = listingItem(item_pool, 'id', undefined, 0, true, [{
+  const list = listingItemSimple(item_pool, 'id', undefined, 0, true, [{
     name: 'has_tag',
     input: will_remove_tag_id,
     invert: false,

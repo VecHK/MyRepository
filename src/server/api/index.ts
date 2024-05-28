@@ -13,7 +13,7 @@ import proxy from 'koa-proxies'
 import { Config } from '../config'
 import { RepositoryInstance } from '../init/repository'
 
-import { FilterRule, ItemFilterCond, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItem, select, updateItem } from '../core/ItemPool'
+import { FilterGroup, FilterRule, ItemFilterCond, ItemIndexedField, addItem, deleteItem, getItem, idList2Items, listingItemAdvanced, listingItemSimple, select, updateItem } from '../core/ItemPool'
 import { ItemJSONForm, Item, ItemID, Item_raw } from '../core/Item'
 import { FileID, constructFileID } from '../core/File'
 import { TagForm, Tag, TagID } from '../core/Tag'
@@ -221,14 +221,14 @@ function ItemActionRoute(
       return { message: 'done' }
     },
 
-    filterList({ ids, filter_rules }: {
+    filterList({ ids, filter_groups }: {
       ids: ItemID[],
-      filter_rules: FilterRule[]
-    }) {
+      filter_groups: FilterGroup[]
+    }): Item[] {
       return (
         idList2Items(itemPool(), ids).filter(
-          ( filter_rules.length === 0 ) ?
-          (() => true) : ItemFilterCond(filter_rules)
+          ( filter_groups.length === 0 ) ?
+          (() => true) : ItemFilterCond(filter_groups)
         )
       )
     },
@@ -242,13 +242,33 @@ function ItemActionRoute(
     }) {
       return idList2Items(
         itemPool(),
-        listingItem(
+        listingItemSimple(
           itemPool(),
           payload.sort_by ? payload.sort_by : 'id',
           payload.after_id,
           payload.limit,
           Boolean(payload.desc),
           payload.filter_rules
+        )
+      )
+    },
+
+    listingItemAdvanced(payload: {
+      sort_by?: ItemIndexedField
+      after_id?: ItemID
+      desc?: boolean
+      limit: number
+      filter_groups: FilterGroup[]
+    }) {
+      return idList2Items(
+        itemPool(),
+        listingItemAdvanced(
+          itemPool(),
+          payload.sort_by ? payload.sort_by : 'id',
+          payload.after_id,
+          payload.limit,
+          Boolean(payload.desc),
+          payload.filter_groups
         )
       )
     },

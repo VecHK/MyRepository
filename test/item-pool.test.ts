@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ItemPool, addItem, createItemPool, deleteItem, getItem, listingItem, updateItem } from '../src/server/core/ItemPool'
+import { FilterGroup, FilterRule, ItemPool, addItem, createItemPool, deleteItem, getItem, listingItemAdvanced, listingItemSimple, updateItem } from '../src/server/core/ItemPool'
 import { ItemID, Item_raw, itemID, parseRawItems } from '../src/server/core/Item'
 import { TagPool, createTagPool, deleteTag, getTag, newTag, updateTag } from '../src/server/core/TagPool'
 import { TagID, tagID } from '../src/server/core/Tag'
@@ -15,6 +15,8 @@ beforeEach(() => {
   //   fs.existsSync(config_object.storage_path)
   // ).toEqual(false)
 })
+
+const listingItem = listingItemSimple
 
 test('测试分页', async () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
@@ -106,7 +108,26 @@ test('Filter Rule(is_child_item)', async () => {
       logic: 'and',
       invert: true,
     }])
-    expect(list.length).toBe(5)
+    expect(list.length).toBe([...getPool().map.values()].length)
+
+    {
+      const child_a = op(addItem, createForm({ title: 'he' }))
+      const child_b = op(addItem, createForm({ title: 'he' }))
+
+      const parent = op(addItem, createForm({
+        original: [ child_a.id, child_b.id ]
+      }))
+
+      const list = listingItem(getPool(), 'id', undefined, 0, true, [{
+        name: 'is_child_item',
+        input: null,
+        logic: 'and',
+        invert: false,
+      }])
+      expect( list.length ).toBe(2)
+      assert( list.includes(child_a.id) )
+      assert( list.includes(child_b.id) )
+    }
   }
   { // is_child_item （更细致的检查
     const [getPool, op] = ItemOperation(
@@ -177,7 +198,54 @@ test('Filter Rule(is_child_item)', async () => {
   }
 })
 
-test.todo('Filter Rule(has_tag)')
+test('Filter Rule(has_tag)', async () => {
+  {  // has_tag
+    const [itemPool, itemOp] = ItemOperation(
+      createItemPool(parseRawItems(generateRawItems()))
+    )
+    const [tagPool, tagOp] = TagOperation(createTagPool([]))
+
+    const tag_a = tagOp(newTag, { name: 'a', attributes: {} })
+    const tag_b = tagOp(newTag, { name: 'b', attributes: {} })
+    const tag_c = tagOp(newTag, { name: 'c', attributes: {} })
+
+    const new_item = itemOp(addItem, createForm({ tags: [ tag_a.id ] }))
+
+    const ids = listingItem(itemPool(), 'id', undefined, 0, true, [{
+      name: 'has_tag',
+      input: tag_a.id,
+      logic: 'and',
+      invert: false
+    }])
+    expect(ids.length).toBe(1)
+    expect(ids).toStrictEqual([ new_item.id ])
+
+    itemOp(updateItem, new_item.id, { tags: [ tag_a.id, tag_b.id ] })
+
+    {
+      const ids = listingItem(itemPool(), 'id', undefined, 0, true, [{
+        name: 'has_tag',
+        input: tag_a.id,
+        logic: 'and',
+        invert: false
+      }])
+      expect(ids.length).toBe(1)
+      expect(ids).toStrictEqual([ new_item.id ])
+    }
+
+    itemOp(updateItem, new_item.id, { tags: [ tag_b.id ] })
+
+    {
+      const ids = listingItem(itemPool(), 'id', undefined, 0, true, [{
+        name: 'has_tag',
+        input: tag_a.id,
+        logic: 'and',
+        invert: false
+      }])
+      expect(ids.length).toBe(0)
+    }
+  }
+})
 
 test('Filter Rule(empty_tag)', async () => {
   const [getItemPool, itemOp] = ItemOperation(createItemPool([]))
@@ -214,7 +282,83 @@ test('Filter Rule(empty_tag)', async () => {
   }
 })
 
-test.todo('Multi Fileter Rule')
+test('Multi Fileter Group', () => {
+  // 选取标题为'helloGroup'、或者 tag 为 tag_a/tag_b/tag_c 任意其中一个的项目
+  const [itemPool, itemOp] = ItemOperation(
+    createItemPool(parseRawItems(generateRawItems()))
+  )
+  const [tagPool, tagOp] = TagOperation(createTagPool([]))
+
+  const tag_a = tagOp(newTag, { name: 'a', attributes: {} })
+  const tag_b = tagOp(newTag, { name: 'b', attributes: {} })
+  const tag_c = tagOp(newTag, { name: 'c', attributes: {} })
+
+  const title_item = itemOp(addItem, createForm({ title: 'helloGroup' }))
+  const tag_a_item = itemOp(addItem, createForm({ title: 'tag_a_item', tags: [ tag_a.id ] }))
+  const tag_b_item = itemOp(addItem, createForm({ title: 'tag_b_item', tags: [ tag_b.id ] }))
+  const tag_c_item = itemOp(addItem, createForm({ title: 'tag_c_item', tags: [ tag_c.id ] }))
+
+  const groups: FilterGroup[] = [{
+    invert: false,
+    logic: 'or',
+    rules: [{
+      invert: false,
+      logic: 'and',
+      name: 'title',
+      input: 'helloGroup'
+    }]
+  }, {
+    invert: false,
+    logic: 'or',
+    rules: [tag_a, tag_b, tag_c].map<FilterRule>(tag => ({
+      name: 'has_tag', invert: false, logic: 'or', input: tag.id
+    }))
+  }]
+  const ids = listingItemAdvanced(itemPool(), 'id', undefined, 0, true, groups)
+  expect(ids.length).toBe(4)
+  assert( ids.includes(title_item.id) )
+  assert( ids.includes(tag_a_item.id) )
+  assert( ids.includes(tag_b_item.id) )
+  assert( ids.includes(tag_c_item.id) )
+})
+
+test('Multi Fileter Group(case 2)', () => {
+  // 选取标题为'helloGroup'、并且 tag 为 tag_a/tag_b/tag_c 任意其中一个的项目
+  const [itemPool, itemOp] = ItemOperation(
+    createItemPool(parseRawItems(generateRawItems()))
+  )
+  const [tagPool, tagOp] = TagOperation(createTagPool([]))
+
+  const tag_a = tagOp(newTag, { name: 'a', attributes: {} })
+  const tag_b = tagOp(newTag, { name: 'b', attributes: {} })
+  const tag_c = tagOp(newTag, { name: 'c', attributes: {} })
+
+  const tag_a_item = itemOp(addItem, createForm({ title: 'helloGroup', tags: [ tag_a.id ] }))
+  const tag_b_item = itemOp(addItem, createForm({ title: 'helloGroup', tags: [ tag_b.id ] }))
+  const tag_c_item = itemOp(addItem, createForm({ title: 'helloGroup', tags: [ tag_c.id ] }))
+
+  const groups: FilterGroup[] = [{
+    invert: false,
+    logic: 'and',
+    rules: [{
+      invert: false,
+      logic: 'and',
+      name: 'title',
+      input: 'helloGroup'
+    }]
+  }, {
+    invert: false,
+    logic: 'and',
+    rules: [tag_a, tag_b, tag_c].map<FilterRule>(tag => ({
+      name: 'has_tag', invert: false, logic: 'or', input: tag.id
+    }))
+  }]
+  const ids = listingItemAdvanced(itemPool(), 'id', undefined, 0, true, groups)
+  expect(ids.length).toBe(3)
+  assert( ids.includes(tag_a_item.id) )
+  assert( ids.includes(tag_b_item.id) )
+  assert( ids.includes(tag_c_item.id) )
+})
 
 test('Filter Rule(invert option)', () => {
   const [getPool, op] = ItemOperation(
@@ -231,9 +375,105 @@ test('Filter Rule(invert option)', () => {
   expect(list.length).toBe(total_list.length)
 })
 
-test.todo('Filter Rule(logic option)')
+test('Filter Rule(logic or)', () => {
+  const [itemPool, itemOp] = ItemOperation(
+    createItemPool(parseRawItems(generateRawItems()))
+  )
+  const [tagPool, tagOp] = TagOperation(createTagPool([]))
 
-test.todo('Filter Rule(empty_release_date)')
+  const tag_a = tagOp(newTag, { name: 'a', attributes: {} })
+  const tag_b = tagOp(newTag, { name: 'b', attributes: {} })
+  const tag_c = tagOp(newTag, { name: 'c', attributes: {} })
+
+  const rules = [tag_a, tag_b, tag_c].map<FilterRule>(tag => ({
+    name: 'has_tag',
+    logic: 'or',
+    invert: false,
+    input: tag.id
+  }))
+
+  {
+    const ids = listingItem( itemPool(), 'id', undefined, 0, true, rules )
+    expect(ids.length).toBe(0)
+  }
+
+  const item_a = itemOp(addItem, createForm({ tags: [ tag_a.id ] }))
+  const item_b = itemOp(addItem, createForm({ tags: [ tag_b.id ] }))
+  const item_c = itemOp(addItem, createForm({ tags: [ tag_c.id ] }))
+
+  {
+    const ids = listingItem( itemPool(), 'id', undefined, 0, true, rules )
+    expect(ids.length).toBe(3)
+    assert(ids.includes(item_a.id))
+    assert(ids.includes(item_b.id))
+    assert(ids.includes(item_c.id))
+  }
+})
+
+test('Filter Rule(logic or/and mixin)', () => {
+  const [itemPool, itemOp] = ItemOperation(
+    createItemPool(parseRawItems(generateRawItems()))
+  )
+  const [tagPool, tagOp] = TagOperation(createTagPool([]))
+
+  const tag_a = tagOp(newTag, { name: 'a', attributes: {} })
+  const tag_b = tagOp(newTag, { name: 'b', attributes: {} })
+  const tag_c = tagOp(newTag, { name: 'c', attributes: {} })
+
+  const or_rules = [tag_a, tag_b, tag_c].map<FilterRule>(tag => ({
+    name: 'has_tag',
+    logic: 'or',
+    invert: false,
+    input: tag.id
+  }))
+
+  const item_a = itemOp(addItem, createForm({ tags: [ tag_a.id ] }))
+  const item_b = itemOp(addItem, createForm({ title: 'hello', tags: [ tag_b.id ] }))
+  const item_c = itemOp(addItem, createForm({ tags: [ tag_c.id ] }))
+
+  {
+    const ids = listingItem( itemPool(), 'id', undefined, 0, true, [
+      {
+        name: 'title',
+        input: 'hello',
+        invert: false,
+        logic: 'and',
+      },
+      ...or_rules
+    ] )
+    expect(ids.length).toBe(1)
+    assert(ids.includes(item_b.id))
+  }
+})
+
+test('Filter Rule(empty_release_date)', () => {
+  const [itemPool, itemOp] = ItemOperation(createItemPool([]))
+  const __range = 100
+  for (let i = 0; i < __range; ++i) {
+    const new_item = itemOp(addItem, createForm({ release_date: null }))
+    const ids = listingItem( itemPool(), 'id', undefined, 0, true, [{
+      name: 'empty_release_date',
+      input: null,
+      invert: false,
+      logic: 'and'
+    }])
+    expect( ids.length ).toBe( i + 1 )
+    assert( ids.includes(new_item.id) )
+  }
+  const items = [...itemPool().map.values()]
+  for (let i = 0; i < items.length; ++i) {
+    const item = items[i]
+    itemOp(deleteItem, item.id)
+    const ids = listingItem( itemPool(), 'id', undefined, 0, true, [{
+      name: 'empty_release_date',
+      input: null,
+      invert: false,
+      logic: 'and'
+    }])
+    expect( ids.length ).toBe( __range - (i + 1) )
+    assert( ids.includes(item.id) === false )
+  }
+})
 
 test('listingItem(sort)', async () => {
   const [getPool, op] = ItemOperation(

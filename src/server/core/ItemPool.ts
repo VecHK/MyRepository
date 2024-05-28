@@ -348,13 +348,13 @@ export type FilterRule =
   }>
 
 type FilterRules = Array<FilterRule>
-type FilterRuleGroups = Array<{
+export type FilterGroup = {
   logic: FilterRuleLogic
   invert: boolean
   rules: FilterRules
-}>
+}
 
-function predicate(rule: FilterRule, item: Item): boolean {
+function rulePredicate(rule: FilterRule, item: Item): boolean {
   if (rule.name === 'has_tag') {
     return item.tags.includes(rule.input)
   } else if (rule.name === 'title') {
@@ -392,32 +392,53 @@ function predicate(rule: FilterRule, item: Item): boolean {
   }
 }
 
-function sortRule(rules: FilterRule[]) {
-  return sort((a, b) => {
-    return a.logic === 'and' ? -1 : 1
-  }, rules)
+function groupPredicate(filter_group: FilterGroup, item: Item): boolean {
+  let any = true
+
+  for (const rule of filter_group.rules) {
+    const check_result = rulePredicate(rule, item)
+    const inverted = rule.invert ? (!check_result) : check_result
+    if (rule.logic === 'and') {
+      if (inverted !== true) {
+        return false
+      }
+    } else {
+      if (inverted === true) {
+        return true
+      } else {
+        any = false
+      }
+    }
+  }
+
+  return any
 }
 
-export function ItemFilterCond(rules: FilterRule[]): (item: Item) => boolean {
+export function ItemFilterCond(filter_groups: FilterGroup[]): (item: Item) => boolean {
   return (item) => {
-    for (const rule of sortRule(rules)) {
-      const check_result = predicate(rule, item)
-      const inverted = rule.invert ? (!check_result) : check_result
-      if (rule.logic === 'and') {
+    let any = true
+
+    for (const group of filter_groups) {
+      const check_result = groupPredicate(group, item)
+      const inverted = group.invert ? (!check_result) : check_result
+      if (group.logic === 'and') {
         if (inverted !== true) {
           return false
         }
       } else {
         if (inverted === true) {
           return true
+        } else {
+          any = false
         }
       }
     }
-    return true
+
+    return any
   }
 }
 
-export function listingItem(
+export function listingItemSimple(
   pool: ItemPool,
   sort_by: keyof ItemPool['index'],
   after_id: ItemID | undefined,
@@ -425,11 +446,26 @@ export function listingItem(
   desc: boolean = false,
   filter_rules: FilterRule[]
 ): ItemID[] {
+  return listingItemAdvanced(pool, sort_by, after_id, limit, desc, [{
+    invert: false,
+    logic: 'and',
+    rules: filter_rules
+  }])
+}
+
+export function listingItemAdvanced(
+  pool: ItemPool,
+  sort_by: keyof ItemPool['index'],
+  after_id: ItemID | undefined,
+  limit: number,
+  desc: boolean = false,
+  filter_groups: FilterGroup[]
+): ItemID[] {
   const id_list = pool.index[sort_by]
 
   const filterCond = (
-    filter_rules.length === 0
-  ) ? (() => true) : ItemFilterCond(filter_rules)
+    filter_groups.length === 0
+  ) ? (() => true) : ItemFilterCond(filter_groups)
 
   if (id_list.length === 0) {
     return []
