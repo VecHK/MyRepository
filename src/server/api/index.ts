@@ -1,14 +1,12 @@
-import { curry, partial, remove } from 'ramda'
-
 import fs from 'fs'
-
 import Koa from 'koa'
 import path from 'path'
+
 import Router from '@koa/router'
-import multer from '@koa/multer'
 import cors from '@koa/cors'
-import { bodyParser } from '@koa/bodyparser'
 import proxy from 'koa-proxies'
+import { koaBody } from 'koa-body'
+import { bodyParser } from '@koa/bodyparser'
 
 import { Config } from '../config'
 import { RepositoryInstance } from '../init/repository'
@@ -19,7 +17,7 @@ import { FileID, constructFileID } from '../core/File'
 import { TagForm, Tag, TagID } from '../core/Tag'
 import { UpdateTagForm, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
 import { generateThumb, getImageDimession } from '../utils/generate-image'
-import { prepareWriteDirectory } from '../utils/directory'
+import { initDirectorySync, prepareWriteDirectory } from '../utils/directory'
 import { deleteTagAndUpdateItemsOperate } from '../core/Pool'
 
 function backFail(
@@ -38,13 +36,109 @@ function backData(
   Object.assign(ctx, { status, body: JSON.stringify(body) })
 }
 
+function singleUploadRouter(
+  repo_inst: RepositoryInstance
+) {
+  const router = new Router()
+
+  const upload_temp_dir = path.join(
+    repo_inst.storage.storage_path,
+    './temp'
+  )
+
+  initDirectorySync(upload_temp_dir)
+  const files = fs.readdirSync(upload_temp_dir)
+  for (const file of files) {
+    fs.unlinkSync(path.join(upload_temp_dir, file))
+  }
+
+  const koaBodySingleFileUpload = koaBody({
+    multipart: true,
+    formidable: {
+      multiples: false,
+      maxFiles: 1,
+      maxFields: 1,
+      allowEmptyFiles: false,
+      keepExtensions: true,
+      uploadDir: upload_temp_dir,
+      filter: part => part.name === 'file'
+    },
+  })
+
+  function detectSingleFile(
+    ctx: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext & Router.RouterParamContext<Koa.DefaultState, Koa.DefaultContext>, any>
+  ) {
+    const { files } = ctx.request
+    if (files === undefined) {
+      throw new Error('upload failure, ctx.request.files === undefined')
+    }
+    if (Object.keys(files).length > 1) {
+      throw new Error('upload failure, only require \'file\' fieldname')
+    }
+
+    const file = files['file']
+    if (file === undefined) {
+      throw new Error('upload failure, require \'file\' fieldname')
+    } else if (Array.isArray(file)) {
+      throw new Error('upload failure, require single upload')
+    }
+
+    return file
+  }
+
+  router.post('file/:file_id', koaBodySingleFileUpload, async ctx => {
+    const file = detectSingleFile(ctx)
+    const { file_id } = ctx.params
+    if ((typeof file_id === 'string') && file_id.length) {
+      if (await repo_inst.file_pool.fileExists(file_id as FileID)) {
+        const source_file_path = repo_inst.file_pool.getFilePath(file_id as FileID)
+        await fs.promises.unlink(source_file_path)
+        await fs.promises.rename(file.filepath, source_file_path)
+        return backData(ctx, file_id, 200)
+      } else {
+        await fs.promises.unlink(file.filepath)
+        return backFail(ctx, 400, `file(id=${file_id}) not found`)
+      }
+    } else {
+      await fs.promises.unlink(file.filepath)
+      return backFail(ctx, 400, 'illegal file_id')
+    }
+  })
+
+  router.post('file', koaBodySingleFileUpload, async (ctx) => {
+    const uploaded = detectSingleFile(ctx)
+
+    const f_num = await repo_inst.file_pool.requestFileNumber()
+    const f_id_extname = path.extname(uploaded.originalFilename || '').replace('.', '')
+
+    const file_id = constructFileID(f_num, f_id_extname)
+
+    const new_file_write_path = repo_inst.file_pool.getFilePath(file_id)
+    await prepareWriteDirectory(new_file_write_path)
+
+    await fs.promises.rename(uploaded.filepath, new_file_write_path)
+
+    return backData(ctx, file_id, 200)
+  })
+
+  router.get('readfile/:file_id', async ctx => {
+    const { file_id } = ctx.params
+    if ( typeof file_id === 'string' ) {
+      const file_path = repo_inst.file_pool.getFilePath(file_id as FileID)
+      const stream = fs.createReadStream(file_path)
+      ctx.body = stream
+    }
+  })
+
+  return router
+}
+
 export function createApi(
   config: Config,
   repo_inst: RepositoryInstance
 ) {
   const app = new Koa()
   const router = new Router()
-  const upload = multer()
 
   app.use(cors({
     // allowMethods: `GET,HEAD,PUT,POST,DELETE,PATCH,OPTIONS`
@@ -59,6 +153,9 @@ export function createApi(
       logs: true
     }})
   )
+
+  const upload_router = singleUploadRouter(repo_inst)
+  router.use('/', upload_router.routes(), upload_router.allowedMethods())
 
   app.use(bodyParser())
 
@@ -81,53 +178,6 @@ export function createApi(
       } else {
         backFail(ctx, 400, `unknown ACTION: ${ctx.request.body.action}`)
       }
-    }
-  })
-
-  router.post('/file', upload.single('file'), async ctx => {
-    const f_num = await repo_inst.file_pool.requestFileNumber()
-
-    const { buffer, originalname } = ctx.request.file
-
-    // @koa/multer 会出现中文乱码的问题，需要自行转换，呵呵
-    const utf8_filename = Buffer.from(originalname, 'latin1').toString('utf8')
-
-    const file_id = constructFileID(f_num, path.extname(utf8_filename).replace('.', ''))
-
-    await repo_inst.file_pool.saveFile(file_id, ctx.request.file.buffer)
-
-    backData(ctx, file_id, 200)
-  })
-
-  router.post('/refreshFile/:file_id', upload.single('file'), async ctx => {
-    const { buffer, originalname } = ctx.request.file
-
-    // @koa/multer 会出现中文乱码的问题，需要自行转换，呵呵
-    const utf8_filename = Buffer.from(originalname, 'latin1').toString('utf8')
-
-    const { file_id } = ctx.params
-    if ((typeof file_id === 'string') && file_id.length) {
-      if (await repo_inst.file_pool.fileExists(file_id as FileID)) {
-        await repo_inst.file_pool.saveFile(file_id as FileID, ctx.request.file.buffer)
-        backData(ctx, file_id, 200)
-      } else {
-        backFail(ctx, 400, `file(id=${file_id}) not found`)
-      }
-      backData(ctx, file_id, 200)
-    } else {
-      backFail(ctx, 400, 'illegal file_id')
-    }
-  })
-
-  router.post('/readfile', async ctx => {
-    if (
-      (typeof ctx.request.body === 'object') &&
-      ctx.request.body !== null
-    ) {
-      const file_id = ctx.request.body['file_id']
-      const file_path = repo_inst.file_pool.getFilePath(file_id as FileID)
-      const stream = fs.createReadStream(file_path)
-      ctx.body = stream
     }
   })
 

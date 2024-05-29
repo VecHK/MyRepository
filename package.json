@@ -13,13 +13,12 @@
     "build-front:production": "env-cmd -f .env.production yarn build",
     "build-front:development": "env-cmd -f .env.development yarn build",
     "test": "jest ./test/ --detectOpenHandles",
-    "test-watch": "jest ./test --watch --detectOpenHandles"
+    "test-watch": "jest ./test/ --watch --detectOpenHandles"
   },
   "dependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@koa/bodyparser": "^5.1.1",
     "@koa/cors": "^5.0.0",
-    "@koa/multer": "^3.0.2",
     "@koa/router": "^12.0.1",
     "ajv": "^8.13.0",
     "axios": "^1.6.8",
@@ -27,6 +26,7 @@
     "html2canvas": "^1.4.1",
     "immutable": "^4.3.6",
     "koa": "^2.15.3",
+    "koa-body": "^6.0.1",
     "koa-proxies": "^0.12.4",
     "moment": "^2.30.1",
     "multer": "^1.4.5-lts.1",
@@ -43,6 +43,7 @@
     "serve-handler": "^6.1.5",
     "sharp": "^0.33.4",
     "styled-jsx": "^5.1.3",
+    "swr": "^2.2.5",
     "vait": "^2.5.1",
     "zustand": "^4.5.2"
   },
@@ -69,7 +70,6 @@
     "@types/jest": "^29.5.12",
     "@types/koa": "^2.15.0",
     "@types/koa__cors": "^5.0.0",
-    "@types/koa__multer": "^2.0.7",
     "@types/koa__router": "^12.0.4",
     "@types/pad-left": "^2.1.3",
     "@types/path-browserify": "^1.0.2",
