@@ -55,6 +55,7 @@ function singleUploadRouter(
   const koaBodySingleFileUpload = koaBody({
     multipart: true,
     formidable: {
+      maxFileSize: Infinity,
       multiples: false,
       maxFiles: 1,
       maxFields: 1,
