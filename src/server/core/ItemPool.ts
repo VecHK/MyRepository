@@ -6,6 +6,7 @@ import { FileID } from './File'
 import Immutable from 'immutable'
 import { AttributeFieldName, AttributeValueType } from './Attributes'
 import { TagPool } from './TagPool'
+import { removeListItemByIdx } from 'web/utils/common'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -117,6 +118,27 @@ export function addItem(old_pool: ItemPool, create_form: ItemJSONForm): readonly
   ]
 }
 
+function removeIndexedFieldItem(index_list: ItemID[], item_id: ItemID): ItemID[] {
+  const idx = index_list.indexOf(item_id)
+  if (idx === -1) {
+    throw new Error(`removeIndexedFieldItem: item_id[id=${item_id}] not found`)
+  } else {
+    return [
+      ...index_list.slice(0, idx),
+      ...index_list.slice(idx + 1, index_list.length),
+    ]
+  }
+}
+
+function deleteIndexItem(index: ItemPool['index'], item_id: ItemID): ItemPool['index'] {
+  return {
+    id: removeIndexedFieldItem(index.id, item_id),
+    release_date: removeIndexedFieldItem(index.release_date, item_id),
+    update_date: removeIndexedFieldItem(index.update_date, item_id),
+    create_date: removeIndexedFieldItem(index.create_date, item_id),
+  }
+}
+
 export function deleteItem(oldpool: ItemPool, will_del_id: number): ItemPool {
   const found_item = getItemById(oldpool.map, will_del_id)
   if (found_item === null) {
@@ -129,12 +151,11 @@ export function deleteItem(oldpool: ItemPool, will_del_id: number): ItemPool {
     throw new Error(`removeItem: Item(id=${will_del_id}) can't delete because these parent item has childs`)
   }
   else {
-    oldpool = updateItem(oldpool, found_item.id, { original: null }) // 通过指定original=null来删除子项目
-    const new_map = oldpool.map.delete(found_item.id)
+    // oldpool = updateItem(oldpool, found_item.id, { original: null }) // 通过指定original=null来删除子项目
     return {
-      ...oldpool,
-      map: new_map,
-      index: constructItemIndex(new_map),
+      latest_id: oldpool.latest_id,
+      map: oldpool.map.delete(found_item.id),
+      index: deleteIndexItem(oldpool.index, found_item.id),
     }
   }
 }
