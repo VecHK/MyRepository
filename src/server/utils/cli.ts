@@ -49,7 +49,7 @@ export async function processingStatus<
   }
 
   function done(string: string) {
-    console.log(`\n${string}`)
+    updateStatus(`\n${string}`)
   }
 
   try {
