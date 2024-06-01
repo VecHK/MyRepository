@@ -1,12 +1,11 @@
-import { concat, remove, sort } from 'ramda'
+import { sort } from 'ramda'
 import { ItemJSONForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, constructNewItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
 import { maxId } from './ID'
 import { FileID } from './File'
 import Immutable from 'immutable'
 import { AttributeFieldName, AttributeValueType } from './Attributes'
-import { TagPool } from './TagPool'
-import { removeListItemByIdx } from 'web/utils/common'
+import { bisectionCallback } from '../utils/bisection'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {
@@ -86,6 +85,34 @@ function moveToLatest(ids: ItemID[], item_id: ItemID) {
   ]
 }
 
+// 使用二分法
+export function insertReleaseDateToIndex(
+  prop: keyof ItemDateFields<Date>,
+  map: ItemPool['map'],
+  id_list: ItemID[],
+  insert_id: ItemID,
+  insert_date: Date | null
+): ItemID[] {
+  const insert_date_value = (insert_date === null) ? 0 : insert_date.valueOf()
+  const insert_index = bisectionCallback(
+    id_list,
+    () => insert_date_value,
+    (item_id) => {
+      const d = getItemByIdCertain(map, item_id)[prop]
+      return (d === null) ? 0 : d.valueOf()
+    }
+  )
+  if (insert_index === -1) {
+    return [insert_id].concat(id_list)
+  } else {
+    return [
+      ...id_list.slice(0, insert_index + 1),
+      insert_id,
+      ...id_list.slice(insert_index + 1, id_list.length)
+    ]
+  }
+}
+
 export function addItem(old_pool: ItemPool, create_form: ItemJSONForm): readonly [
   Item,
   ItemPool
@@ -97,21 +124,21 @@ export function addItem(old_pool: ItemPool, create_form: ItemJSONForm): readonly
     old_pool = setItemsParent(old_pool, new_item.original, new_item.id)
   }
 
-  const new_map = old_pool.map.set(new_id, new_item)
-
   return [
     new_item,
     {
       latest_id: new_id,
-      map: new_map,
+      map: old_pool.map.set(new_id, new_item),
       index: {
-        id: [ ...old_pool.index.id, new_id ],
-        create_date: [ ...old_pool.index.create_date, new_id ],
-        update_date: moveToLatest(old_pool.index.update_date, new_id),
-        release_date: createDateIndex(
+        id: old_pool.index.id.concat(new_id),
+        create_date: old_pool.index.create_date.concat(new_id),
+        update_date: old_pool.index.update_date.concat(new_id),
+        release_date: insertReleaseDateToIndex(
           'release_date',
-          new_map,
-          [...old_pool.index.release_date, new_id],
+          old_pool.map,
+          old_pool.index.release_date,
+          new_id,
+          new_item.release_date
         )
       }
     }
@@ -290,10 +317,12 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
         update_date: moveToLatest(pool.index.update_date, found_item.id),
         release_date: (
           !need_update_release_date) ? pool.index.release_date : (
-            createDateIndex(
+            insertReleaseDateToIndex(
               'release_date',
-              new_map,
-              map2list(new_map).map(item => item.id),
+              pool.map,
+              removeIndexedFieldItem(pool.index.release_date, found_item.id),
+              found_item.id,
+              new_release_date
             )
           )
       }
