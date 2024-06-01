@@ -5,6 +5,7 @@ import { curry, partial, pipe } from 'ramda'
 import pathExists, { checkDirectory, initDirectory, initDirectorySync, prepareWriteDirectory } from '../utils/directory'
 import { Memo, Serial } from 'vait'
 import { ItemPool, collectReferencedFileIds } from '../core/ItemPool'
+import concurrentMap from '../utils/concurrent-map'
 
 export const __FILE_POOL_SPLIT_INTERVAL__ = 2_000
 
@@ -66,14 +67,11 @@ async function LatestFileNumber(filepool_path: string) {
       )
     )
 
-    const callSetFileNumber = async function (new_num: number) {
-      setLatest(new_num)
-      await saveLatestFileNumber(latest_num_path, new_num)
-    }
-
     return async function requestFileNumber() {
       const latest_num = getLatest()
-      await callSetFileNumber(latest_num + 1)
+      const new_num = latest_num + 1
+      setLatest(new_num)
+      await saveLatestFileNumber(latest_num_path, new_num)
       return latest_num
     }
   }
@@ -110,28 +108,26 @@ async function collectUnReferencedFiles(
   filepool_path: string,
   pool: ItemPool,
   foundCallback: (file: string, found: boolean) => void
-) {
+): Promise<string[]> {
   const refs = collectReferencedFileIds(pool)
   const splits = await fs.promises.readdir(filepool_path)
 
-  let unrefs: Array<string> = []
-
-  for (const split of splits) {
+  const unrefs_ = await concurrentMap(10, splits, async (split) => {
     const split_path = path.join(filepool_path, split)
     if ('dir' === (await checkDirectory(split_path))) {
       const file_path_list = await getDirectoryFileRecursive(split_path)
-      unrefs = [
-        ...unrefs,
-        ...file_path_list.filter(p => {
-          const file_id = path.basename(p) as FileID
-          const found = !refs.includes(file_id)
-          foundCallback(p, found)
-          return found
-        })
-      ]
+      return file_path_list.filter(p => {
+        const file_id = path.basename(p) as FileID
+        const found = !refs.includes(file_id)
+        foundCallback(p, found)
+        return found
+      })
+    } else {
+      return []
     }
-  }
-  return unrefs
+  })
+
+  return unrefs_.flat()
 }
 
 export async function deleteFiles(

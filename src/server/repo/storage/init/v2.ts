@@ -90,6 +90,7 @@ export function PoolStorage(storage_path: string) {
     const jsonfiles = (await Promise.all(jsonfiles_P)).flat()
 
     return concurrentMap(
+      __READALL_CONCURRENT,
       jsonfiles,
       async (jsonfile_path) => {
         const raw_json = await fs.readFile( jsonfile_path, { encoding: 'utf-8' } )
@@ -99,7 +100,6 @@ export function PoolStorage(storage_path: string) {
         }
         return data
       },
-      __READALL_CONCURRENT
     )
   }
 
