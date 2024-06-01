@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import assert from 'assert'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const assert = require('power-assert')
 import request from 'supertest'
 import config_object from './config'
 import { initRepositoryInstance } from '../../src/server/init/repository'

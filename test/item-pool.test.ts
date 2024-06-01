@@ -1,11 +1,12 @@
-import assert from 'assert'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const assert = require('power-assert')
 
-import { FilterGroup, FilterRule, ItemPool, addItem, createItemPool, deleteItem, getItem, listingItemAdvanced, listingItemSimple, updateItem } from '../src/server/core/ItemPool'
-import { ItemID, Item_raw, itemID, parseRawItems } from '../src/server/core/Item'
+import { FilterGroup, FilterRule, ItemPool, addItem, createItemPool, deleteItem, getItem, insertReleaseDateToIndex, listingItemAdvanced, listingItemSimple, updateItem } from '../src/server/core/ItemPool'
+import { ItemID, Item_raw, constructNewItem, itemID, parseRawItems } from '../src/server/core/Item'
 import { TagPool, createTagPool, deleteTag, getTag, newTag, updateTag } from '../src/server/core/TagPool'
 import { TagID, tagID } from '../src/server/core/Tag'
 import { timeout } from 'vait'
-import { partial, range } from 'ramda'
+import { last, partial, range } from 'ramda'
 import { ItemOperation, TagOperation, createForm, generateRawItems } from './common'
 import { deleteTagAndUpdateItemsOperate } from '../src/server/core/Pool'
 
@@ -546,6 +547,107 @@ test('listingItem(sort)', async () => {
   }
 })
 
+test('index', async () => {
+  const [getPool, op] = ItemOperation(
+    createItemPool([])
+  )
+
+  for (let i = 0; i < 10; ++i) {
+    const item = op(addItem, createForm({  }))
+    expect( getPool().index.id.length ).toBe( i + 1 )
+    expect(last( getPool().index.id )).toBe(item.id)
+    expect(last( getPool().index.update_date )).toBe(item.id)
+    expect(last( getPool().index.create_date )).toBe(item.id)
+    expect(last( getPool().index.release_date )).toBe(item.id)
+  }
+
+  const item_a_id = getPool().index.update_date[0]
+  op(updateItem, item_a_id, { title: 'hello!' })
+  expect(getPool().index.update_date[0]).not.toBe(item_a_id)
+  expect(last( getPool().index.update_date )).toBe(item_a_id)
+
+  const item_ids = [...getPool().map.keys()]
+  for (const item_id of item_ids) {
+    assert( getPool().index.id.includes(item_id) )
+    assert( getPool().index.update_date.includes(item_id) )
+    assert( getPool().index.create_date.includes(item_id) )
+    assert( getPool().index.release_date.includes(item_id) )
+    assert( item_ids.length === getPool().index.id.length )
+    assert( item_ids.length === getPool().index.update_date.length )
+    assert( item_ids.length === getPool().index.create_date.length )
+    assert( item_ids.length === getPool().index.release_date.length )
+  }
+
+  for (let i = 0; i < item_ids.length; ++i) {
+    const item_id = item_ids[i]
+    op(deleteItem, item_id)
+    assert( false === getPool().index.id.includes(item_id) )
+    assert( false === getPool().index.update_date.includes(item_id) )
+    assert( false === getPool().index.create_date.includes(item_id) )
+    assert( false === getPool().index.release_date.includes(item_id) )
+
+    assert( (item_ids.length - (i + 1)) === getPool().index.id.length )
+    assert( (item_ids.length - (i + 1)) === getPool().index.update_date.length )
+    assert( (item_ids.length - (i + 1)) === getPool().index.create_date.length )
+    assert( (item_ids.length - (i + 1)) === getPool().index.release_date.length )
+  }
+
+  assert( 0 === [...getPool().map.keys()].length )
+})
+
+test('insertReleaseDateToIndex', async () => {
+  const [getPool, op] = ItemOperation(
+    createItemPool([])
+  )
+
+  const item_a = op(addItem, createForm({ release_date: String(new Date('2001/01/01')) }))
+  await timeout(100)
+  const item_b = op(addItem, createForm({ release_date: String(new Date('2002/01/01')) }))
+  await timeout(100)
+  const item_c = op(addItem, createForm({ release_date: String(new Date('2003/01/01')) }))
+
+  const new_item_id = itemID(99922)
+
+  const ids = insertReleaseDateToIndex(
+    'release_date',
+    getPool().map,
+    getPool().index.update_date,
+    new_item_id,
+    new Date('2004/01/01')
+  )
+  expect( ids.length ).toBe( 4 )
+  expect( ids[0] ).toBe(item_a.id)
+  expect( ids[1] ).toBe(item_b.id)
+  expect( ids[2] ).toBe(item_c.id)
+  expect( ids[ids.length - 1] ).toBe( new_item_id )
+})
+
+test('insertReleaseDateToIndex(same date)', async () => {
+  const [getPool, op] = ItemOperation(
+    createItemPool([])
+  )
+
+  const same_date = new Date('2008/01/01')
+
+  const item_a = op(addItem, createForm({ release_date: String(same_date) }))
+  await timeout(100)
+  const item_b = op(addItem, createForm({ release_date: String(same_date) }))
+  await timeout(100)
+  const item_c = op(addItem, createForm({ release_date: String(same_date) }))
+
+  const new_item_id = itemID(99922)
+
+  const ids = insertReleaseDateToIndex(
+    'release_date',
+    getPool().map,
+    getPool().index.update_date,
+    new_item_id,
+    same_date
+  )
+  expect( ids.length ).toBe( 4 )
+  expect( ids[ids.length - 1] ).toBe( new_item_id ) // 同样的数值应该排到末尾
+})
+
 test('createItemPool', () => {
   const item_pool = createItemPool(parseRawItems(generateRawItems()))
   expect(item_pool.latest_id).toBe(9)
@@ -615,7 +717,11 @@ test('create parent item', () => {
     const { release_date } = getItem(pool, child.id)
     assert(release_date !== null)
     assert(release_date instanceof Date)
-    expect(release_date.toJSON()).toBe(release_datestring)
+    if (release_date) {
+      expect(release_date.toJSON()).toBe(release_datestring)
+    } else {
+      throw Error('ss')
+    }
   }
 })
 

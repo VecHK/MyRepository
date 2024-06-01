@@ -1,4 +1,6 @@
-import assert from 'assert'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const assert = require('power-assert')
+
 import { parseRawItems } from '../src/server/core/Item'
 import { addItem, createItemPool, getItem, updateItem } from '../src/server/core/ItemPool'
 import { tagID } from '../src/server/core/Tag'

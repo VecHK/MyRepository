@@ -1,5 +1,6 @@
 import { AnyValidator, ValidatorInstance, loadProperty, runValidator, v_isAny, v_isNoneZero, v_isNull, v_isNumber, v_isString } from '../src/server/utils/my-validator'
-import assert from 'assert'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const assert = require('power-assert')
 
 function runValidatorTest(
   inst: ValidatorInstance<any>,
