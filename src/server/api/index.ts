@@ -17,7 +17,7 @@ import { FileID, constructFileID } from '../core/File'
 import { TagForm, Tag, TagID } from '../core/Tag'
 import { UpdateTagForm, getTag, getTagIdByName, idList2Tags, newTag, searchTag, tagnameHasDuplicate, updateTag } from '../core/TagPool'
 import { generateThumb, getImageDimession } from '../utils/generate-image'
-import { initDirectorySync, prepareWriteDirectory } from '../utils/directory'
+import pathExists, { initDirectorySync, prepareWriteDirectory } from '../utils/directory'
 import { deleteTagAndUpdateItemsOperate } from '../core/Pool'
 
 function backFail(
@@ -52,7 +52,7 @@ function singleUploadRouter(
     fs.unlinkSync(path.join(upload_temp_dir, file))
   }
 
-  const koaBodySingleFileUpload = koaBody({
+  const singleFileUpload = koaBody({
     multipart: true,
     formidable: {
       maxFileSize: Infinity,
@@ -87,7 +87,7 @@ function singleUploadRouter(
     return file
   }
 
-  router.post('file/:file_id', koaBodySingleFileUpload, async ctx => {
+  router.post('file/:file_id', singleFileUpload, async ctx => {
     const file = detectSingleFile(ctx)
     const { file_id } = ctx.params
     if ((typeof file_id === 'string') && file_id.length) {
@@ -106,7 +106,7 @@ function singleUploadRouter(
     }
   })
 
-  router.post('file', koaBodySingleFileUpload, async (ctx) => {
+  router.post('file', singleFileUpload, async (ctx) => {
     const uploaded = detectSingleFile(ctx)
 
     const f_num = await repo_inst.file_pool.requestFileNumber()
@@ -120,6 +120,21 @@ function singleUploadRouter(
     await fs.promises.rename(uploaded.filepath, new_file_write_path)
 
     return backData(ctx, file_id, 200)
+  })
+
+  router.delete('file/:file_id', async ctx => {
+    const { file_id } = ctx.params
+    if ( typeof file_id === 'string' ) {
+      const file_path = repo_inst.file_pool.getFilePath(file_id as FileID)
+      if (await pathExists(file_path)) {
+        await fs.promises.unlink(file_path)
+        backData(ctx, { message: 'done' }, 200)
+      } else {
+        backFail(ctx, 404, `file not found(file_id=${file_id})`)
+      }
+    } else {
+      backFail(ctx, 400, 'require file_id')
+    }
   })
 
   router.get('readfile/:file_id', async ctx => {
