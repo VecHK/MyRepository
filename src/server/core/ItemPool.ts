@@ -1,4 +1,4 @@
-import { sort } from 'ramda'
+import { remove, sort } from 'ramda'
 import { ItemJSONForm, Item, ItemDateFields, ItemID, Item_raw, NullableFileID, NullableFileIDFields, constructNewItem, itemID, parseRawItems, unique } from './Item'
 import { TagID } from './Tag'
 import { maxId } from './ID'
@@ -69,20 +69,21 @@ export function createItemPool(items: Item[]): ItemPool {
   }
 }
 
-function moveToLatest(ids: ItemID[], item_id: ItemID) {
+function moveToLast(ids: ItemID[], item_id: ItemID) {
   // const idx = ids.indexOf(item_id)
   // if (idx === -1) {
-  //   throw new Error('moveToLatest: item_id not found')
+  //   throw new Error('moveToLast: item_id not found')
   // } else {
-  //   return [
-  //     ...remove(idx, 1, ids),
-  //     item_id
-  //   ]
+  //   return (
+  //     remove(idx, 1, ids)
+  //       .concat(item_id)
+  //   )
   // }
-  return [
-    ...ids.filter(finding_id => finding_id !== item_id),
-    item_id
-  ]
+  return (
+    ids
+      .filter(finding_id => finding_id !== item_id)
+      .concat(item_id)
+  )
 }
 
 // 使用二分法
@@ -205,12 +206,12 @@ export function getItem(pool: ItemPool, id: number): Item {
 }
 
 function setItemParentDirect(
-  map: ItemPool['map'],
+  pool: ItemPool,
   item_id: ItemID,
   parent: Item['parent']
-): ItemPool['map'] {
-  const prev_item = getMapItem(map, item_id)
-  return map.set(item_id, { ...prev_item, parent })
+): ItemPool {
+  const prev_item = getMapItem(pool.map, item_id)
+  return changeItem(pool, item_id, { ...prev_item, parent })
 }
 
 function setItemsParent(
@@ -218,14 +219,11 @@ function setItemsParent(
   child_item_ids: ItemID[],
   parent: Item['parent']
 ): ItemPool {
-  let new_map: ItemPool['map'] = pool.map
+  let latest_pool = pool
   for (const child_item_id of child_item_ids) {
-    new_map = setItemParentDirect(new_map, child_item_id, parent)
+    latest_pool = setItemParentDirect(latest_pool, child_item_id, parent)
   }
-  return {
-    ...pool,
-    map: new_map
-  }
+  return latest_pool
 }
 
 function removeItemsParent(pool: ItemPool, child_item_ids: ItemID[]) {
@@ -239,7 +237,7 @@ function updateItemOriginal(
   const prev_original = prev_item.original
 
   if (Array.isArray(prev_original)) {
-    const removed_pool = setItem(
+    const removed_pool = changeItem(
       removeItemsParent(pool, prev_original),
       id,
       { ...prev_item, original: null }
@@ -252,20 +250,47 @@ function updateItemOriginal(
       if (new_original.includes(id)) {
         throw new Error('updateItemOriginal: 子项目不能包括自己')
       } else {
-        return setItem(
+        return changeItem(
           setItemsParent(pool, new_original, id),
           id,
           new_item
         )
       }
     } else {
-      return setItem(pool, id, new_item)
+      return changeItem(pool, id, new_item)
     }
   }
 }
 
-function setItem(pool: ItemPool, id: ItemID, item: Item) {
-  return { ...pool, map: pool.map.set(id, item) }
+function changeItem(pool: ItemPool, will_change_id: ItemID, new_item: Item) {
+  const found_item = getItemById(pool.map, will_change_id)
+  if (found_item === null) {
+    throw new Error(`changeItem: Item(id=${will_change_id}) not found`)
+  } else {
+    const now_date = new Date
+    const need_update_release_date = (found_item.release_date !== new_item.release_date)
+
+    return {
+      ...pool,
+      map: pool.map.set(will_change_id, {
+        ...new_item,
+        update_date: now_date,
+      }),
+      index: {
+        ...pool.index,
+        update_date: moveToLast(pool.index.update_date, will_change_id),
+        release_date: (!need_update_release_date) ? pool.index.release_date : (
+          insertReleaseDateToIndex(
+            'release_date',
+            pool.map,
+            removeIndexedFieldItem(pool.index.release_date, found_item.id),
+            found_item.id,
+            new_item.release_date
+          )
+        )
+      },
+    }
+  }
 }
 
 export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJSONForm>): ItemPool {
@@ -276,17 +301,15 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
   const found_item = getItemById(pool.map, id)
   if (found_item === null) {
     throw new Error(`updateItem: Item(id=${id}) not found`)
+  } else if (updateForm.original !== undefined) {
+    const form = { ...updateForm }
+    Reflect.deleteProperty(form, 'original')
+    return updateItem(
+      updateItemOriginal(pool, itemID(id), updateForm.original),
+      id,
+      form,
+    )
   } else {
-    if (updateForm.original !== undefined) {
-      const form = { ...updateForm }
-      Reflect.deleteProperty(form, 'original')
-      return updateItem(
-        updateItemOriginal(pool, id as ItemID, updateForm.original),
-        id,
-        form
-      )
-    }
-
     const update_form_tags = updateForm.tags
 
     let new_release_date = found_item.release_date
@@ -297,36 +320,15 @@ export function updateItem(pool: ItemPool, id: number, updateForm: Partial<ItemJ
       }
     }
 
-    const new_map = pool.map.set(found_item.id, {
+    return changeItem(pool, found_item.id, {
       ...found_item,
       ...updateForm,
-
-      update_date: new Date,
 
       tags: Array.isArray(update_form_tags) ?
         unique(update_form_tags) : found_item.tags,
 
-      release_date: new_release_date
+      release_date: new_release_date,
     })
-
-    return {
-      ...pool,
-      map: new_map,
-      index: {
-        ...pool.index,
-        update_date: moveToLatest(pool.index.update_date, found_item.id),
-        release_date: (
-          !need_update_release_date) ? pool.index.release_date : (
-            insertReleaseDateToIndex(
-              'release_date',
-              pool.map,
-              removeIndexedFieldItem(pool.index.release_date, found_item.id),
-              found_item.id,
-              new_release_date
-            )
-          )
-      }
-    }
   }
 }
 
