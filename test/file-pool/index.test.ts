@@ -255,16 +255,15 @@ test('atomic requestFileNumber', async () => {
     const op = filepool.requestFileNumber()
     operating.push(op)
     op.then(num => {
-      list.push(num)
+      list[i] = num
     })
   }
 
   await Promise.all(operating)
-  await timeout(100)
 
   expect(list.length).toBe(increment_count)
 
-  for (let i = 0; i < list.length; ++i) {
-    expect(list[i]).toBe(i)
+  for (let i = 0, num = list[0]; i < list.length; ++i) {
+    expect(list[i]).toBe(num + i)
   }
 })

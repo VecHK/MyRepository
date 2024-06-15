@@ -12,7 +12,7 @@
     "build-front": "react-scripts build",
     "build-front:production": "env-cmd -f .env.production yarn build",
     "build-front:development": "env-cmd -f .env.development yarn build",
-    "test": "jest ./test/ --detectOpenHandles --watch",
+    "test": "jest ./test/ --detectOpenHandles",
     "test-watch": "jest ./test/ --watch --detectOpenHandles"
   },
   "dependencies": {
@@ -25,13 +25,12 @@
     "blueimp-md5": "^2.19.0",
     "html2canvas": "^1.4.1",
     "immutable": "^4.3.6",
+    "ink": "^5.0.1",
     "koa": "^2.15.3",
     "koa-body": "^6.0.1",
     "koa-proxies": "^0.12.4",
     "moment": "^2.30.1",
     "multer": "^1.4.5-lts.1",
-    "new-vait": "npm:vait@2.7.0-beta",
-    "old-vait": "npm:vait@0.2.3",
     "pad-left": "^2.1.0",
     "power-assert": "^1.6.1",
     "ramda": "^0.30.0",
@@ -41,11 +40,12 @@
     "react-scripts": "^5.0.1",
     "react-select": "^5.8.0",
     "react-transition-group": "^4.4.5",
+    "seedrandom": "^3.0.5",
     "serve-handler": "^6.1.5",
     "sharp": "^0.33.4",
     "styled-jsx": "^5.1.3",
     "swr": "^2.2.5",
-    "vait": "^2.5.1",
+    "vait": "^4.2.1",
     "zustand": "^4.5.2"
   },
   "engines": {
@@ -65,7 +65,6 @@
     ]
   },
   "devDependencies": {
-    "babel-preset-power-assert": "^3.0.0",
     "@babel/plugin-proposal-do-expressions": "^7.24.1",
     "@babel/preset-env": "^7.24.5",
     "@babel/preset-typescript": "^7.24.1",
@@ -80,10 +79,12 @@
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.3.0",
     "@types/react-transition-group": "^4.4.10",
+    "@types/seedrandom": "^3.0.8",
     "@types/serve-handler": "^6.1.4",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
+    "babel-preset-power-assert": "^3.0.0",
     "env-cmd": "^10.1.0",
     "eslint": "^8.57.0",
     "eslint-plugin-prettier": "^5.1.3",

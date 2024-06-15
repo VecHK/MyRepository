@@ -56,19 +56,21 @@ export function toRawItem(item: Item): Item_raw {
   }
 }
 
-export function parseRawItems(raw_items: Item_raw[]): Item[] {
-  return raw_items.map(raw_item => {
-    const release_date = (
-      raw_item.release_date === null
-    ) ? null : new Date(raw_item.release_date)
+export function parseRawItem(raw_item: Item_raw): Item {
+  const release_date = (
+    raw_item.release_date === null
+  ) ? null : new Date(raw_item.release_date)
 
-    return {
-      ...raw_item,
-      release_date,
-      create_date: new Date(raw_item.create_date),
-      update_date: new Date(raw_item.update_date),
-    }
-  })
+  return {
+    ...raw_item,
+    release_date,
+    create_date: new Date(raw_item.create_date),
+    update_date: new Date(raw_item.update_date),
+  }
+}
+
+export function parseRawItems(raw_items: Item_raw[]): Item[] {
+  return raw_items.map(parseRawItem)
 }
 
 const v_isItemID = DefineValidator<ItemID>('itemID', [

@@ -7,7 +7,7 @@ import { Tag } from '../core/Tag'
 import { createItemPool } from '../core/ItemPool'
 import { createTagPool } from '../core/TagPool'
 import { StorageInst, StorageInstance } from '../repo/storage/init'
-import { ItemStorage, TagStorage } from '../repo/storage'
+import { ApplyItemStorage, ApplyTagStorage } from '../repo/storage'
 import { PoolStorage } from '../repo/storage/init/v2'
 import { initFilePool } from '../repo/file-pool'
 
@@ -15,8 +15,8 @@ export type RepositoryInstance = {
   config: Config,
   storage: Awaited<StorageInstance>
   file_pool: Awaited<ReturnType<typeof initFilePool>>,
-  itempool_op: ReturnType<typeof ItemStorage>
-  tagpool_op: ReturnType<typeof TagStorage>
+  itempool_op: ReturnType<typeof ApplyItemStorage>
+  tagpool_op: ReturnType<typeof ApplyTagStorage>
 }
 
 export async function initRepositoryInstance(
@@ -25,9 +25,9 @@ export async function initRepositoryInstance(
 ): Promise<RepositoryInstance> {
   const storage = await StorageInst(config.storage_path)
 
-  const { readAllIgnoreSequence } = PoolStorage(config.storage_path)
+  const poolStorage = PoolStorage(config.storage_path)
 
-  const [ tag_data, item_raw_data ] = await processingStatus(async ({ updateStatus, done }) => {
+  const [ items, tags ] = await processingStatus(async ({ updateStatus, done }) => {
     let count_tag = 0
     let count_item = 0
 
@@ -37,30 +37,35 @@ export async function initRepositoryInstance(
       }
     }
 
-    const tag_data_P = readAllIgnoreSequence<Tag>('tag', tag => {
-      count_tag += 1
-      refreshStatus()
-    })
-
-    const item_raw_data_P = readAllIgnoreSequence<Item_raw>('item', item_raw => {
+    const item_data_P = poolStorage.item.readAllIgnoreSequence(item => {
       count_item += 1
       refreshStatus()
     })
 
-    const res = [await tag_data_P, await item_raw_data_P] as const
+    const tag_data_P = poolStorage.tag.readAllIgnoreSequence(tag => {
+      count_tag += 1
+      refreshStatus()
+    })
 
-    if (!slient) {
-      done('')
+    try {
+      const res = [await item_data_P, await tag_data_P] as const
+
+      if (!slient) {
+        done('')
+      }
+
+      return res
+    } catch (err) {
+      console.error(err)
+      throw err
     }
-
-    return res
   })
 
   return createRepositoryInstance({
     config,
     storage,
-    tags: tag_data,
-    items: parseRawItems(item_raw_data),
+    tags,
+    items,
     slient,
   })
 }
@@ -78,23 +83,24 @@ async function createRepositoryInstance({
   items: Item[],
   slient: boolean
 }): Promise<RepositoryInstance> {
-  const tagpool_op = TagStorage(
-    createTagPool(tags),
-    storage.storage_path,
-    slient
-  )
-
-  const itempool_op = ItemStorage(
-    createItemPool(items),
-    storage.storage_path,
-    slient
-  )
-
+  const poolStorage = PoolStorage(config.storage_path)
   return Object.freeze({
     config,
     storage,
     file_pool: await initFilePool(config.filepool_path),
-    tagpool_op,
-    itempool_op,
+    tagpool_op: (
+      ApplyTagStorage({
+        tag_pool: createTagPool(tags),
+        storageQueue: poolStorage.tag.queue,
+        slient,
+      })
+    ),
+    itempool_op: (
+      ApplyItemStorage({
+        item_pool: createItemPool(items),
+        storageQueue: poolStorage.item.queue,
+        slient,
+      })
+    ),
   })
 }

@@ -32,7 +32,7 @@ export type ImageDimession = {
 }
 
 // ref: https://sharp.pixelplumbing.com/api-input#metadata
-function sizeNormalize({ width, height, orientation }: sharp.Metadata): ImageDimession {
+export function sizeNormalize({ width, height, orientation }: sharp.Metadata): ImageDimession {
   return (orientation || 0) >= 5
     ? { orientation, width: height, height: width }
     : { orientation, width, height }

@@ -2,12 +2,16 @@ import path from 'path'
 import fs from 'fs/promises'
 import Storage, { PartFields } from './v1-type'
 import { IOloadPart, IOsavePart } from './io'
-import { Item_raw, parseRawItems } from '../../../core/Item'
+import { Item, ItemID, Item_raw, parseRawItem, parseRawItems } from '../../../core/Item'
 import { splitPoint } from '../../file-pool'
 import { checkDirectory, prepareWriteDirectory } from '../../../utils/directory'
-import { Memo, Serial, timeout } from 'new-vait'
+import { Queue, QueueSignal, Signal, runTask } from 'vait'
 import { processingStatus } from '../../../utils/cli'
-import concurrentMap from '../../../utils/concurrent-map'
+import { concurrentMap } from 'vait'
+import { Driver, StorageObject, StorageQueue} from '../storage-queue'
+import { Tag, TagID } from '../../../core/Tag'
+
+const __MAX_CONCURRENCY = 100
 
 const __POOL_SPLIT_INTERVAL__ = 4000
 
@@ -23,23 +27,15 @@ export function SavePart(storage_path: string) {
   }
 }
 
-const _processing = Serial()
+const fsQueue = Queue(QueueSignal())
+fsQueue.setMaxConcurrent(__MAX_CONCURRENCY)
 
-function processingWithError(asyncFn: () => Promise<void>) {
-  return new Promise((res, rej) => {
-    _processing(async () => {
-      try {
-        await asyncFn()
-        res(undefined)
-      } catch (err) {
-        rej(err)
-      }
-    })
-  })
-}
+const poolPath = (storage_path: string, cat: string) => (
+  path.join( storage_path, `${cat}-pool` )
+)
 
-export function PoolStorage(storage_path: string) {
-  function jsonPath(prefix: string, id: number) {
+function Id2Path<ID extends number>(storage_path: string, cat: string) {
+  function jsonPath(prefix: string, id: ID) {
     const split_num = splitPoint(__POOL_SPLIT_INTERVAL__, id)
     return path.join(
       prefix,
@@ -48,172 +44,200 @@ export function PoolStorage(storage_path: string) {
     )
   }
 
-  async function writeJSON(path: string, obj: any) {
-    await fs.writeFile(path, JSON.stringify(obj))
+  const id2Path = (id: ID) => jsonPath(poolPath(storage_path, cat), id)
+
+  return id2Path
+}
+
+function queueCheckDirectory(path: string) {
+  return runTask(fsQueue, async () => {
+    try {
+      return await checkDirectory(path)
+    } catch (err) {
+      console.error('await checkDirectory(path)', err)
+      throw err
+    }
+  })
+}
+
+function InitDriver<
+  ID extends number,
+  Obj extends StorageObject<ID>
+>(
+  cat: string,
+  storage_path: string,
+): Driver<ID, Obj> {
+  const id2Path = Id2Path<ID>(storage_path, cat)
+
+  async function writeJSON(path: string, obj: Obj) {
+    await runTask(fsQueue, () => fs.writeFile(path, JSON.stringify(obj)))
   }
 
-  function poolPath(cat: string) {
-    return path.join(storage_path, `${cat}-pool`)
+  const NAME = `${cat}Driver`
+
+  function throwNotFound(type: keyof Driver<ID, Obj>, id: ID, path: string): never {
+    throw new Error(`${NAME}: ${type} failure because ${cat}(id=${id}) is non-exists. path: ${path}`)
+  }
+  function throwDirectory(type: keyof Driver<ID, Obj>, id: ID, path: string): never {
+    throw new Error(`${NAME}: ${type} failure because ${cat}(id=${id})'s write path is a directory. path: ${path}`)
+  }
+  function throwExists(type: keyof Driver<ID, Obj>, id: ID, path: string): never {
+    throw new Error(`${NAME}: ${type} failure because ${cat}(id=${id}) is non-exists. path: ${path}`)
   }
 
-  function id2Path(cat: string, id: number) {
-    return jsonPath( poolPath(cat), id )
+  return {
+    async readRaw(id) {
+      const p = id2Path(id)
+      const res = await queueCheckDirectory(p)
+      if (res === 'notfound') {
+        throwNotFound('readRaw', id, p)
+      } else if (res === 'dir') {
+        throwDirectory('readRaw', id, p)
+      } else {
+        const data = await runTask(fsQueue, () => fs.readFile(p, { encoding: 'utf8' }))
+        return data
+      }
+    },
+
+    async create(obj) {
+      const p = id2Path(obj.id)
+      const res = await queueCheckDirectory(p)
+      if (res === 'notfound') {
+        await prepareWriteDirectory(p)
+        await writeJSON(p, obj)
+      } else if (res === 'dir') {
+        throwDirectory('create', obj.id, p)
+      } else {
+        throwExists('create', obj.id, p)
+      }
+    },
+
+    async delete(id) {
+      const p = id2Path(id)
+      const res = await queueCheckDirectory(p)
+      if (res === 'notfound') {
+        throwNotFound('delete', id, p)
+      } else if (res === 'dir') {
+        throwDirectory('delete', id, p)
+      } else {
+        await runTask(fsQueue, () => fs.unlink(p))
+      }
+    },
+
+    async update(obj) {
+      const p = id2Path(obj.id)
+      const res = await queueCheckDirectory(p)
+      if (res === 'notfound') {
+        throwNotFound('update', obj.id, p)
+      } else if (res === 'dir') {
+        throwDirectory('update', obj.id, p)
+      } else {
+        await writeJSON(p, obj)
+      }
+    },
   }
+}
 
-  const __READALL_CONCURRENT = 2000
+function InitStorage<
+  ID extends number,
+  Obj extends StorageObject<ID>
+>(
+  cat: string,
+  storage_path: string,
+  parser: (raw: string) => Obj,
+  driver = InitDriver(cat, storage_path)
+) {
+  const queue = StorageQueue<ID, Obj>(driver)
 
-  async function readAllIgnoreSequence<Type>(
-    cat: string,
-    itemLoadedCallback?: (item: Type) => void
-  ): Promise<Type[]> {
-    const basepath = path.join(poolPath(cat))
-    const splits = await fs.readdir(basepath)
+  async function readAllIgnoreSequence(
+    itemLoadedCallback?: (obj: Obj) => void
+  ): Promise<Obj[]> {
+    const basepath = path.join(poolPath(storage_path, cat))
 
-    const jsonfiles_P = splits.map(split => {
-      const split_path = path.join(basepath, split)
-      return (
-        checkDirectory(path.join(split_path))
-          .then(status => {
+    const splits = await runTask(fsQueue, () => fs.readdir(basepath))
+
+    const jsonfiles_P = (
+      concurrentMap(3, splits, async (split) => {
+        const split_path = path.join(basepath, split)
+        return (
+          queueCheckDirectory(split_path).then(status => {
             if (status === 'dir') {
-              return fs.readdir(split_path).then(jsonfiles => {
-                return jsonfiles.map(jsonfilename => {
-                  return path.join(split_path, jsonfilename)
+              return runTask(fsQueue, () => (
+                fs.readdir(split_path).then(jsonfiles => {
+                  return jsonfiles.map(jsonfilename => {
+                    return path.join(split_path, jsonfilename)
+                  })
                 })
-              })
+              ))
             } else {
               return []
             }
           })
+        )
+      })
+    )
+    const jsonfiles = (await jsonfiles_P).flat()
+
+    return (
+      concurrentMap(
+        __MAX_CONCURRENCY,
+        jsonfiles,
+        async (jsonfile_path) => {
+          return runTask(fsQueue, async () => {
+            const raw_json = await fs.readFile( jsonfile_path, { encoding: 'utf-8' } )
+            const data = parser(raw_json) as Obj
+            if (itemLoadedCallback) {
+              itemLoadedCallback(data)
+            }
+            return data
+          })
+        },
       )
-    })
-
-    const jsonfiles = (await Promise.all(jsonfiles_P)).flat()
-
-    return concurrentMap(
-      __READALL_CONCURRENT,
-      jsonfiles,
-      async (jsonfile_path) => {
-        const raw_json = await fs.readFile( jsonfile_path, { encoding: 'utf-8' } )
-        const data = JSON.parse(raw_json) as Type
-        if (itemLoadedCallback) {
-          itemLoadedCallback(data)
-        }
-        return data
-      },
     )
   }
 
-  async function readAll<Type>(cat: string, itemLoadedCallback?: (item: Type) => void) {
-    let list: Type[] = []
+  async function readAll(itemLoadedCallback?: (item: Obj) => void) {
+    let list: Obj[] = []
 
-    await processingWithError(async () => {
-      list = await readAllIgnoreSequence(cat, itemLoadedCallback)
-    })
+    queue.queuePool.addTask(0 as ID, 'other', () => Promise.resolve())
+    await Signal.wait(queue.queuePool.signal.ALL_DONE)
+
+    queue.queuePool.pause()
+    try {
+      list = await readAllIgnoreSequence(itemLoadedCallback)
+    } finally {
+      queue.queuePool.resume()
+    }
 
     return list
   }
 
-  function ReadFile(cat: string) {
-  }
-
-  async function createFileIgnoreSerial(cat: string, obj: any) {
-    const p = id2Path(cat, obj.id)
-    const res = await checkDirectory(p)
-    if (res === 'notfound') {
-      await prepareWriteDirectory(p)
-      await writeJSON(p, obj)
-    } else if (res === 'dir') {
-      throw new Error(`CreateFile: create failure because ${cat}(id=${obj.id})'s write path is a directory. path: ${p}`)
-    } else {
-      throw new Error(`CreateFile: create failure because ${cat}(id=${obj.id})'s write path is exists. path: ${p}`)
-    }
-  }
-  function CreateFiles(cat: string) {
-    return async (objs: any[]) => {
-      await processingWithError(async () => {
-        await Promise.all(
-          objs.map(obj => createFileIgnoreSerial(cat, obj))
-        )
-      })
-    }
-  }
-  function CreateFile(cat: string) {
-    return async (obj: any) => {
-      await processingWithError(async () => {
-        await createFileIgnoreSerial(cat, obj)
-      })
-    }
-  }
-
-  async function updateFileIgnoreSerial(cat: string, obj: any) {
-    const p = id2Path(cat, obj.id)
-    const res = await checkDirectory(p)
-    if (res === 'notfound') {
-      throw new Error(`UpdateFile: update failure because ${cat}(id=${obj.id}) is non-exists. path: ${p}`)
-    } else if (res === 'dir') {
-      throw new Error(`UpdateFile: update failure because ${cat}(id=${obj.id})'s write path is a directory. path: ${p}`)
-    } else {
-      await writeJSON(p, obj)
-    }
-  }
-  function UpdateFiles(cat: string) {
-    return async (objs: any[]) => {
-      await processingWithError(async () => {
-        await Promise.all(
-          objs.map(obj => updateFileIgnoreSerial(cat, obj))
-        )
-      })
-    }
-  }
-  function UpdateFile(cat: string) {
-    return async (obj: any) => {
-      await processingWithError(async () => {
-        await updateFileIgnoreSerial(cat, obj)
-      })
-    }
-  }
-
-  async function deleteFile(cat: string, id: number) {
-    const p = id2Path(cat, id)
-    const res = await checkDirectory(p)
-    if (res === 'notfound') {
-      throw new Error(`DeleteFile: delete failure because ${cat}(id=${id}) is non-exists. path: ${p}`)
-    } else if (res === 'dir') {
-      throw new Error(`DeleteFile: delete failure because ${cat}(id=${id})'s write path is a directory. path: ${p}`)
-    } else {
-      await fs.unlink(p)
-    }
-  }
-  function DeleteFiles(cat: string) {
-    return async (ids: number[]) => {
-      await processingWithError(async () => {
-        await Promise.all(
-          ids.map(id => deleteFile(cat, id))
-        )
-      })
-    }
-  }
-  function DeleteFile(cat: string) {
-    return async (id: number) => {
-      await processingWithError(async () => {
-        await deleteFile(cat, id)
-      })
-    }
-  }
-
   return {
-    createItemFiles: CreateFiles('item'),
-    createItemFile: CreateFile('item'),
-    updateItemFiles: UpdateFiles('item'),
-    updateItemFile: UpdateFile('item'),
-    deleteItemFiles: DeleteFiles('item'),
-    deleteItemFile: DeleteFile('item'),
-    createTagFile: CreateFile('tag'),
-    updateTagFile: UpdateFile('tag'),
-    deleteTagFile: DeleteFile('tag'),
+    queue,
+    driver,
     readAllIgnoreSequence,
     readAll,
    } as const
+}
+
+export function itemPoolStorage(storage_path: string) {
+  return (
+    InitStorage<ItemID, Item>('item', storage_path, raw => {
+      const item_raw = JSON.parse(raw) as Item_raw
+      return parseRawItem(item_raw)
+    })
+  )
+}
+
+export function PoolStorage(storage_path: string) {
+  return {
+    item: itemPoolStorage(storage_path),
+    tag: (
+      InitStorage<TagID, Tag>('tag', storage_path, raw => {
+        return JSON.parse(raw)
+      })
+    )
+  }
 }
 
 export async function updater(
@@ -227,18 +251,15 @@ export async function updater(
     updateStatus('读取tags.json')
     const tags = await LoadPart(storage_path)('tags')
 
-    const {
-      createItemFile,
-      createTagFile,
-    } = PoolStorage(storage_path)
+    const storage = PoolStorage(storage_path)
 
     for (const item of items) {
-      await createItemFile(item)
+      await storage.item.driver.create(item)
       updateStatus(`📄 已创建 item(id=${item.id}) 文件`)
     }
 
     for (const tag of tags) {
-      await createTagFile(tag)
+      await storage.tag.driver.create(tag)
       updateStatus(`🏷️  已创建 tag(id=${tag.id}) 文件`)
     }
 

@@ -1,9 +1,9 @@
-import { Memo, Signal } from 'new-vait'
+import { Memo } from 'vait'
+import Immutable from 'immutable'
 import { Tag, TagID } from './Tag'
 import { TagPool, deleteTag } from './TagPool'
 import { ItemPool, getItem, listingItemSimple, updateItem } from './ItemPool'
 import { Item, ItemID } from './Item'
-import Immutable from 'immutable'
 
 export function diffItemPoolMap(map_new: ItemPool['map'], map_prev: ItemPool['map']) {
   return map_new.reduce(({ dels, adds, changes }, item_new) => {
@@ -23,6 +23,140 @@ export function diffItemPoolMap(map_new: ItemPool['map'], map_prev: ItemPool['ma
     adds: Immutable.Map<ItemID, Item>(),
     changes: Immutable.Map<ItemID, Item>(),
   })
+}
+
+function collectAdds(map_new: ItemPool['map'], from_id: ItemID, to_id: ItemID) {
+  const adds: ItemID[] = []
+  for (let id = from_id; id <= to_id; ++id) {
+    if (map_new.get(id) !== undefined) {
+      adds.push(id)
+    }
+  }
+  return adds
+}
+
+function reverseIdx(idx: number, len: number) {
+  return (len - 1) - idx
+}
+
+function collectChanges(prev_pool: ItemPool, current_pool: ItemPool) {
+  const changes: ItemID[] = []
+
+  const { update_date } = current_pool.index
+
+  let current_idx = 0
+  for (
+    let prev_idx = 0;
+    (prev_idx < prev_pool.index.update_date.length) &&
+    (current_idx < current_pool.index.update_date.length);
+  ) {
+    const current_id = update_date[
+      reverseIdx(current_idx, current_pool.index.update_date.length)
+    ]
+    const prev_id = prev_pool.index.update_date[
+      reverseIdx(prev_idx, prev_pool.index.update_date.length)
+    ]
+
+    if ( current_id > prev_pool.latest_id ) {
+      // 新增的，直接跳过
+      current_idx += 1
+    } else {
+      const prev_item = prev_pool.map.get(current_id)
+      const curr_item = current_pool.map.get(current_id)
+
+      if ( current_id === prev_id ) {
+        if (prev_item === curr_item) {
+          return changes
+        } else {
+          changes.push( current_id )
+          current_idx += 1
+          prev_idx += 1
+        }
+      } else {
+        if (!current_pool.map.has(prev_id)) {
+          // 被删除了，直接跳过
+          prev_idx += 1
+        } else {
+          if (prev_item === curr_item) {
+            return changes
+          } else {
+            changes.push( current_id )
+            current_idx += 1
+            prev_idx += 1
+          }
+        }
+      }
+    }
+  }
+
+  return changes
+}
+
+function findDifferent(
+  current_ids: ItemID[],
+  prev_ids: ItemID[],
+  start = 0,
+  end = prev_ids.length - 1,
+) {
+  const range = end - start
+  if (prev_ids.length === 0) {
+    return 0
+  } else if (prev_ids.length === 1) {
+    return 0
+  } else if ((end - start) <= 2) {
+    return start
+  } else {
+    const mid_may_be_float = range / 2
+    const mid = start + Math.floor(mid_may_be_float)
+
+    if (prev_ids[mid] === current_ids[mid]) {
+      return findDifferent(current_ids, prev_ids, mid, end)
+    } else {
+      const new_end = start + Math.ceil(mid_may_be_float)
+      return findDifferent(current_ids, prev_ids, start, new_end)
+    }
+  }
+}
+
+function collectDels(
+  current_pool: ItemPool,
+  prev_pool: ItemPool
+) {
+  const dels: ItemID[] = []
+
+  const start = findDifferent(current_pool.index.id, prev_pool.index.id)
+  let current_idx = start
+  for (
+    let i = start;
+    i < prev_pool.index.id.length;
+    ++i
+  ) {
+    const prev_id = prev_pool.index.id[i]
+    const current_id = current_pool.index.id[current_idx]
+    if (prev_id !== current_id) {
+      dels.push(prev_id)
+    } else {
+      current_idx += 1
+    }
+  }
+  return dels
+}
+
+export function diffItemPoolMapFast(current_pool: ItemPool, prev_pool: ItemPool) {
+  const dels = collectDels(
+    current_pool,
+    prev_pool,
+  )
+
+  const adds = collectAdds(
+    current_pool.map,
+    (prev_pool.latest_id + 1) as ItemID,
+    current_pool.latest_id
+  )
+
+  const changes = collectChanges(prev_pool, current_pool)
+
+  return { dels, adds, changes }
 }
 
 export function diffTagPoolMap(map_new: TagPool['map'], map_prev: TagPool['map']) {

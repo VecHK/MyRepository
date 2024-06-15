@@ -3,9 +3,8 @@ import path from 'path'
 import { FileID, name2number, parseFileID } from '../core/File'
 import { curry, partial, pipe } from 'ramda'
 import pathExists, { checkDirectory, initDirectory, initDirectorySync, prepareWriteDirectory } from '../utils/directory'
-import { Memo, Serial } from 'vait'
+import { Memo, Sequence, concurrentMap } from 'vait'
 import { ItemPool, collectReferencedFileIds } from '../core/ItemPool'
-import concurrentMap from '../utils/concurrent-map'
 
 export const __FILE_POOL_SPLIT_INTERVAL__ = 2_000
 
@@ -35,7 +34,7 @@ function getFilePath(
   )
 }
 
-const saving = Serial()
+const saving = Sequence()
 function saveLatestFileNumber(
   latest_num_path: string,
   file_number: number

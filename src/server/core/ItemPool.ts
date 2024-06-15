@@ -6,6 +6,7 @@ import { FileID } from './File'
 import Immutable from 'immutable'
 import { AttributeFieldName, AttributeValueType } from './Attributes'
 import { bisectionCallback } from '../utils/bisection'
+import { shuffleGenerator } from 'web/utils/shuffle-array'
 
 export type ItemIndexedField = 'id' | 'release_date' | 'create_date' | 'update_date' // | 'title'
 export type ItemPool = {

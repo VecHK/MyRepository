@@ -1,19 +1,17 @@
-
 function sameValueRangeCallback<T>(
-  listValueCallback: (v: T) => number,
+  getValue: (v: T) => number,
   list: T[],
   idx: number,
   same_val: number,
   direction: -1 | 1
 ) {
-  for (;listValueCallback(list[idx]) === same_val; idx += direction) {
+  for (;getValue(list[idx]) === same_val; idx += direction) {
     if (idx <= 0) {
       return 0
     } else if (idx >= (list.length - 1)) {
       return list.length - 1
     }
   }
-
   return idx - (direction)
 }
 
@@ -36,12 +34,10 @@ export function bisectionCallback<T>(
       (getValue(list[start]) === val) ?
         sameValueRangeCallback(getValue, list, start, val, -1) : start
     )
-
     const e = (
       (getValue(list[end]) === val) ?
         sameValueRangeCallback(getValue, list, end, val, 1) : end
     )
-
     for (let i = e; i >= s; --i) {
       if (val >= getValue(list[i])) {
         return i
@@ -49,18 +45,17 @@ export function bisectionCallback<T>(
         return -1
       }
     }
-
     return start
-  }
-
-  const mid_may_be_float = range / 2
-  const mid = start + Math.floor(mid_may_be_float)
-
-  if (getValue(list[mid]) < val) {
-    return bisectionCallback(list, getInputValue, getValue, mid, end)
   } else {
-    const new_end = start + Math.ceil(mid_may_be_float)
-    return bisectionCallback(list, getInputValue, getValue, start, new_end)
+    const mid_may_be_float = range / 2
+    const mid = start + Math.floor(mid_may_be_float)
+
+    if (getValue(list[mid]) < val) {
+      return bisectionCallback(list, getInputValue, getValue, mid, end)
+    } else {
+      const new_end = start + Math.ceil(mid_may_be_float)
+      return bisectionCallback(list, getInputValue, getValue, start, new_end)
+    }
   }
 }
 
@@ -69,7 +64,6 @@ export function bisection(
   val: number,
   start: number = 0,
   end: number = list.length - 1,
-  // count = 0
 ): number {
   return bisectionCallback(list, () => val, (v) => v, start, end)
 }
