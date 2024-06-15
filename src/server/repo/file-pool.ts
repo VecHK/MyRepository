@@ -156,7 +156,7 @@ export async function initFilePool(
     getFilePath: filePath,
     collectUnReferencedFiles: partial(collectUnReferencedFiles, [filepool_path]),
     async cleanUnReferencedFiles(pool: ItemPool) {
-      deleteFiles(
+      return deleteFiles(
         await collectUnReferencedFiles(filepool_path, pool, () => {}),
         () => {}
       )
