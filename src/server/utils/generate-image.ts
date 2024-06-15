@@ -1,5 +1,7 @@
 import sharp from 'sharp'
 
+sharp.cache(false)
+
 export async function generateThumb({
   source_image_path,
   thumb_image_path,
@@ -20,7 +22,8 @@ export async function generateThumb({
       effort: 8,
     })
     .toFile(thumb_image_path)
-  ;
+
+  sharp_p.destroy()
 
   return thumb_image_path
 }
